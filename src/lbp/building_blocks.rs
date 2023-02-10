@@ -13,6 +13,16 @@ pub const ARROW_FN: &str = "()=>{}";
 pub const INFINITY: &str = "(+!![]/+[])+[]";
 pub const EMPTY_STR: &str = "[]+[]";
 
+/// Generates jsf*ck expression that will evaluate into the desired number
+///
+/// # Examples
+/// ```
+/// use jsfuckrs::lbp::building_blocks::{number, ONE};
+/// let zero = number(0);
+/// let two = number(2);
+/// assert_eq!(zero, "+[]");
+/// assert_eq!(two, "+!![] + +!![]");
+/// ```
 pub fn number(n: usize) -> String {
     match n {
         0 => ZERO.to_owned(),
@@ -40,6 +50,7 @@ where
         .join("+")
 }
 
+/// Compile a javascript expression into jsf*ck
 pub fn compile<T>(code: T) -> String
 where
     T: AsRef<str>,
@@ -220,10 +231,7 @@ mod tests {
 
         #[test]
         fn alert() {
-            assert_eq!(
-                compile("alert(1);"),
-                include_str!("data/alert.txt")
-            );
+            assert_eq!(compile("alert(1);"), include_str!("data/alert.txt"));
         }
     }
 }

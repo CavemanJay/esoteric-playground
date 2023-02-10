@@ -4,3 +4,5 @@
 //!
 //! [GitHub Link](https://github.com/lowbyteproductions/JavaScript-Is-Weird/blob/master/index.js)
 pub mod building_blocks;
+
+pub use building_blocks::compile;
