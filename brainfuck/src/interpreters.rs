@@ -17,7 +17,7 @@ use crate::{
 /// ```
 pub fn interpret_with_wrapping(prog: &str) -> String {
     let loop_table = find_loops(prog);
-    let prog = prog.chars().collect::<Vec<_>>();
+    let prog = prog.as_bytes();
     let mut user_input: Vec<char> = Vec::new();
     let mut tape: HashMap<usize, Cell> = HashMap::from_iter([(0, 0)]);
     let mut ip = 0;
@@ -59,7 +59,7 @@ pub fn interpret_with_wrapping(prog: &str) -> String {
 /// Translated from: https://github.com/Camto/Shorterpreters/blob/master/Brainfuck/brainfuck.py
 pub fn interpret(prog: &str) -> String {
     let loop_table = find_loops(prog);
-    let prog = prog.chars().collect::<Vec<_>>();
+    let prog = prog.as_bytes();
     let mut user_input: Vec<char> = Vec::new();
     let mut tape: Vec<Cell> = Vec::from([0]);
     let mut ip = 0;
