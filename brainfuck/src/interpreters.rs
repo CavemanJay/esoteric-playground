@@ -33,9 +33,7 @@ pub fn interpret_with_wrapping(prog: &str) -> String {
             '<' => cell_index = cell_index.wrapping_sub(1),
             '>' => {
                 cell_index = cell_index.wrapping_add(1);
-                if !tape.contains_key(&cell_index) {
-                    tape.insert(cell_index, 0);
-                }
+                tape.entry(cell_index).or_insert(0);
             }
             '.' => output.push(tape[&cell_index] as char),
             ',' => {
@@ -95,4 +93,4 @@ pub fn interpret(prog: &str) -> String {
     output
 }
 
-pub fn interpret_functional(prog: &str) {}
+pub fn interpret_functional(_prog: &str) {}
