@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use crate::{
     utils::{find_loops, get_input},
     Cell,
 };
+use std::collections::HashMap;
 
 /// Takes a brainfuck program and calculates the resulting [String] output.
 /// Accepts wrapping indices.
@@ -76,8 +76,7 @@ pub fn interpret(prog: &str) -> String {
                     tape.push(0);
                 }
             }
-            // '.' => print!("{}", tape[cell_index] as char),
-            '.' => output.push(tape[cell_index] as char),
+            '.' => output.push(*cell_val as char),
             ',' => {
                 if user_input.is_empty() {
                     user_input = get_input();
@@ -93,4 +92,39 @@ pub fn interpret(prog: &str) -> String {
     output
 }
 
-pub fn interpret_functional(_prog: &str) {}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hello_world_test() {
+        let prog = include_str!("../data/hello_world.bf");
+        assert_eq!("Hello World!\n", interpret(prog))
+    }
+
+    #[test]
+    fn hello_world_2_test() {
+        let prog = include_str!("../data/hello_world2.bf");
+        assert_eq!("Hello World!\n", interpret(prog))
+    }
+
+    #[test]
+    #[should_panic]
+    fn hello_world_3_panics() {
+        let prog = include_str!("../data/hello_world3.bf");
+        interpret(prog);
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "wrap_around"), ignore)]
+    fn hello_world_3_wrapping_test() {
+        let prog = include_str!("../data/hello_world3.bf");
+        assert_eq!("Hello, World!", interpret_with_wrapping(prog))
+    }
+
+    #[test]
+    fn hello_world_2_wrapping_test() {
+        let prog = include_str!("../data/hello_world2.bf");
+        assert_eq!("Hello World!\n", interpret_with_wrapping(prog))
+    }
+}
