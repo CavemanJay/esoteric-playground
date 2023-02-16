@@ -8,5 +8,14 @@ edition = "2021"
 [features]
 default = ["wrap_around"]
 wrap_around = []
+dhat-heap = ["dhat"]
 
 [dependencies]
+dhat = { version = "0.3.2", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.4", features = ["html_reports"] }
+
+[[bench]]
+name = "interpreters"
+harness = false
