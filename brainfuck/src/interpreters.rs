@@ -1,4 +1,4 @@
-use crate::{find_loops, get_input, Cell};
+use crate::{get_input, verify_loops, BrainfuckError, Cell, ExecutionErrorType};
 use std::collections::HashMap;
 
 /// Takes a brainfuck program and calculates the resulting [String] output.
@@ -12,10 +12,11 @@ use std::collections::HashMap;
 /// ```
 /// use brainfuck::*;
 /// let program = "+[-->-[>>+>-----<<]<--<---]>-.>>>+.>>..+++[.>]<<<<.+++.------.<<-.>>>>+.";
-/// assert_eq!(interpret_with_wrapping(program), "Hello, World!");
+/// assert_eq!(interpret_with_wrapping(program).unwrap(), "Hello, World!");
+/// assert!(interpret_fast(program).is_err())
 /// ```
-pub fn interpret_with_wrapping(prog: &str) -> String {
-    let loop_table = find_loops(prog);
+pub fn interpret_with_wrapping(prog: &str) -> Result<String, BrainfuckError> {
+    let loop_table = verify_loops(prog)?;
     let prog = prog.as_bytes();
     let mut user_input: Vec<char> = Vec::new();
     let mut tape: HashMap<usize, Cell> = HashMap::from_iter([(0, 0)]);
@@ -25,7 +26,7 @@ pub fn interpret_with_wrapping(prog: &str) -> String {
     while ip < prog.len() {
         let instruction = prog[ip] as char;
         tape.entry(cell_index).or_insert(0);
-        let cell_val = tape.get_mut(&cell_index).unwrap();
+        let cell_val = tape.get_mut(&cell_index).expect("Failed to get a mutable reference to the current cell value");
         match instruction {
             '+' => *cell_val = cell_val.wrapping_add(1),
             '-' => *cell_val = cell_val.wrapping_sub(1),
@@ -34,41 +35,53 @@ pub fn interpret_with_wrapping(prog: &str) -> String {
                 cell_index = cell_index.wrapping_add(1);
                 tape.entry(cell_index).or_insert(0);
             }
-            '.' => output.push(tape[&cell_index] as char),
+            '.' => output.push(*cell_val as char),
             ',' => {
                 if user_input.is_empty() {
                     user_input = get_input();
                 }
                 *cell_val = user_input.remove(0) as Cell
             }
-            '[' if tape[&cell_index] == 0 => ip = loop_table[&ip],
-            ']' if tape[&cell_index] != 0 => ip = loop_table[&ip],
+            '[' if *cell_val == 0 => ip = loop_table[&ip],
+            ']' if *cell_val != 0 => ip = loop_table[&ip],
             _ => {}
         }
         ip += 1
     }
-    output
+    Ok(output)
 }
 
 /// Takes a brainfuck program and calculates the resulting [String] output.
 /// Does not accept wrapping indices.
 ///
 /// Translated from: https://github.com/Camto/Shorterpreters/blob/master/Brainfuck/brainfuck.py
-pub fn interpret_fast(prog: &str) -> String {
-    let loop_table = find_loops(prog);
-    let prog = prog.as_bytes();
+pub fn interpret_fast(prog: &str) -> Result<String, BrainfuckError> {
+    let loop_table = verify_loops(prog)?;
+    let prog_bytes = prog.as_bytes();
     let mut user_input: Vec<char> = Vec::new();
     let mut tape: Vec<Cell> = Vec::from([0]);
     let mut ip = 0;
+    let mut cycle = 0;
     let mut cell_index = 0;
     let mut output = String::new();
-    while ip < prog.len() {
-        let instruction = prog[ip] as char;
-        let cell_val = tape.get_mut(cell_index).unwrap();
+    while ip < prog_bytes.len() {
+        let instruction = prog_bytes[ip] as char;
+        let cell_val = tape.get_mut(cell_index).expect("Failed to get a mutable reference to the current cell value");
         match instruction {
             '+' => *cell_val = cell_val.wrapping_add(1),
             '-' => *cell_val = cell_val.wrapping_sub(1),
-            '<' => cell_index -= 1,
+            '<' => {
+                cell_index = match cell_index.checked_sub(1) {
+                    Some(i) => Ok(i),
+                    None => Err(BrainfuckError::ExecutionError {
+                        location: (ip, 0).into(),
+                        err_type: ExecutionErrorType::CellIndexUnderflow,
+                        src: prog.to_string(),
+                        instruction_ptr: ip,
+                        cycle,
+                    }),
+                }?;
+            }
             '>' => {
                 cell_index += 1;
                 if cell_index == tape.len() {
@@ -86,9 +99,10 @@ pub fn interpret_fast(prog: &str) -> String {
             ']' if *cell_val != 0 => ip = loop_table[&ip],
             _ => {}
         }
-        ip += 1
+        ip += 1;
+        cycle += 1;
     }
-    output
+    Ok(output)
 }
 
 #[cfg(test)]
@@ -98,32 +112,40 @@ mod tests {
     #[test]
     fn hello_world_test() {
         let prog = include_str!("../data/hello_world.bf");
-        assert_eq!("Hello World!\n", interpret_fast(prog))
+        assert_eq!("Hello World!\n", interpret_fast(prog).unwrap());
+        assert_eq!("Hello World!\n", interpret_with_wrapping(prog).unwrap());
     }
 
     #[test]
     fn hello_world_2_test() {
         let prog = include_str!("../data/hello_world2.bf");
-        assert_eq!("Hello World!\n", interpret_fast(prog))
+        assert_eq!("Hello World!\n", interpret_fast(prog).unwrap());
+        assert_eq!("Hello World!\n", interpret_with_wrapping(prog).unwrap());
+    }
+
+    #[test]
+    fn hello_world_3_err() {
+        let prog = include_str!("../data/hello_world3.bf");
+        interpret_fast(prog).unwrap_err();
     }
 
     #[test]
     #[should_panic]
-    fn hello_world_3_panics() {
+    fn hello_world_3_fast_panics() {
         let prog = include_str!("../data/hello_world3.bf");
-        interpret_fast(prog);
+        interpret_fast(prog).unwrap();
     }
 
     #[test]
-    #[cfg_attr(not(feature = "wrap_around"), ignore)]
     fn hello_world_3_wrapping_test() {
         let prog = include_str!("../data/hello_world3.bf");
-        assert_eq!("Hello, World!", interpret_with_wrapping(prog))
+        assert_eq!("Hello, World!", interpret_with_wrapping(prog).unwrap())
     }
 
     #[test]
-    fn hello_world_2_wrapping_test() {
-        let prog = include_str!("../data/hello_world2.bf");
-        assert_eq!("Hello World!\n", interpret_with_wrapping(prog))
+    fn hello_world_4_test() {
+        let prog = include_str!("../data/hello_world4.bf");
+        assert_eq!("Hello World!\n", interpret_fast(prog).unwrap());
+        assert_eq!("Hello World!\n", interpret_with_wrapping(prog).unwrap());
     }
 }

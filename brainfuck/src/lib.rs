@@ -1,10 +1,52 @@
+#![allow(dead_code)]
+#![warn(clippy::unwrap_used)]
+pub mod interpreters;
+pub use interpreters::*;
+use miette::{Diagnostic, Result, SourceSpan};
+use std::collections::HashMap;
+use thiserror::Error;
+
 type Cell = u8;
 
-pub mod interpreters;
+#[derive(Error, Diagnostic, Debug)]
+pub enum BrainfuckError {
+    #[error("Could not parse program")]
+    #[diagnostic(code(something))]
+    ParseError {
+        #[source_code]
+        src: String,
+        #[label("It might be this one")]
+        location: SourceSpan,
+        #[diagnostic_source]
+        err_type: LoopErrorType,
+        char_index: usize,
+    },
+    #[error("An error occurred while executing the program")]
+    ExecutionError {
+        #[source_code]
+        src: String,
+        #[label("Occurred at instruction: {instruction_ptr}, cycle: {cycle}")]
+        location: SourceSpan,
+        instruction_ptr: usize,
+        cycle: usize,
+        #[diagnostic_source]
+        err_type: ExecutionErrorType,
+    },
+}
 
-use std::collections::HashMap;
+#[derive(Error, Diagnostic, Debug)]
+pub enum ExecutionErrorType {
+    #[error("Negative unsigned integer overflow ocurred in cell index")]
+    CellIndexUnderflow,
+}
 
-pub use interpreters::*;
+#[derive(Error, Diagnostic, Debug)]
+pub enum LoopErrorType {
+    #[error("Unclosed bracket")]
+    UnclosedBracket,
+    #[error("Unexpected closing bracket")]
+    UnexpectedClosingBracket,
+}
 
 enum Operation {
     Increment,
@@ -21,7 +63,8 @@ enum Operation {
 struct BrainfuckProgram {}
 
 fn parse(prog: &str) -> Result<BrainfuckProgram, ()> {
-    prog.char_indices()
+    let _instructions = prog
+        .char_indices()
         .map(|(ip, instruction)| match instruction {
             '+' => Operation::Increment,
             '-' => Operation::Decrement,
@@ -53,19 +96,87 @@ pub(crate) fn print_tape(ip: usize, tape: &[Cell]) {
     )
 }
 
-pub(crate) fn find_loops(prog: &str) -> HashMap<usize, usize> {
-    let mut loop_stack = Vec::with_capacity(100);
+fn verify_loops(prog: &str) -> Result<HashMap<usize, usize>, BrainfuckError> {
+    let mut stack = Vec::with_capacity(100);
     let mut loops = HashMap::new();
     for (ip, instruction) in prog.char_indices() {
         match instruction {
-            '[' => loop_stack.push(ip),
+            '[' => stack.push((ip, instruction)),
             ']' => {
-                let loop_start = loop_stack.pop().unwrap();
+                let (loop_start, _instruction) = match stack.pop() {
+                    Some(x) => Ok(x),
+                    None => Err(BrainfuckError::ParseError {
+                        location: (ip, 0).into(),
+                        src: prog.into(),
+                        err_type: LoopErrorType::UnexpectedClosingBracket,
+                        char_index: ip,
+                    }),
+                }?;
                 loops.insert(loop_start, ip);
                 loops.insert(ip, loop_start);
             }
             _ => {}
         }
     }
-    loops
+    match stack.pop() {
+        Some((index, instruction)) => Err(match instruction {
+            '[' => BrainfuckError::ParseError {
+                location: (index, 0).into(),
+                src: prog.into(),
+                err_type: LoopErrorType::UnclosedBracket,
+                char_index: index,
+            },
+            _ => panic!(),
+        }),
+        None => Ok(loops),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loop_search_test() {
+        let loops = verify_loops(include_str!("../data/cat.bf")).unwrap();
+        assert_eq!(loops, HashMap::from_iter([(1, 4), (4, 1)]));
+        let loops = verify_loops(include_str!("../data/hello_world.bf")).unwrap();
+        assert_eq!(
+            loops,
+            HashMap::from_iter([
+                (9, 22),
+                (22, 9),
+                (32, 30),
+                (30, 32),
+                (42, 59),
+                (59, 42),
+                (44, 56),
+                (87, 91),
+                (91, 87),
+                (85, 94),
+                (94, 85),
+                (56, 44),
+            ])
+        );
+    }
+
+    #[test]
+    fn parse_test() {
+        let prog = include_str!("../data/cat.bf");
+        assert!(verify_loops(prog).is_ok());
+        let prog = include_str!("../data/fails_to_parse_close.bf");
+        let result = verify_loops(prog);
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.diagnostic_source().unwrap().to_string(),
+            "Unclosed bracket"
+        );
+        let prog = include_str!("../data/fails_to_parse_open.bf");
+        let result = verify_loops(prog);
+        let err = result.unwrap_err();
+        assert_eq!(
+            err.diagnostic_source().unwrap().to_string(),
+            "Unexpected closing bracket"
+        );
+    }
 }
