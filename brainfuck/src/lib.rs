@@ -1,17 +1,5 @@
-#![allow(dead_code)]
-#![warn(
-    clippy::unwrap_used,
-    clippy::doc_markdown,
-    clippy::checked_conversions,
-    clippy::almost_swapped,
-    clippy::absurd_extreme_comparisons,
-    clippy::unnecessary_cast,
-    future_incompatible,
-    nonstandard_style,
-    rustdoc::all,
-    anonymous_parameters,
-    absolute_paths_not_starting_with_crate
-)]
+#![warn(clippy::pedantic, clippy::nursery)]
+#![allow(dead_code, clippy::missing_errors_doc)]
 pub mod interpreters;
 pub use interpreters::*;
 use miette::{Diagnostic, Result, SourceSpan};
@@ -125,7 +113,7 @@ pub(crate) fn print_tape(ip: usize, tape: &[Cell]) {
             .map(|&n| n.to_string())
             .collect::<Vec<_>>()
             .join(", ")
-    )
+    );
 }
 
 fn verify_loops(prog: &str) -> Result<HashMap<usize, usize>, BrainfuckError> {
@@ -135,15 +123,17 @@ fn verify_loops(prog: &str) -> Result<HashMap<usize, usize>, BrainfuckError> {
         match instruction {
             '[' => stack.push((ip, instruction)),
             ']' => {
-                let (loop_start, _instruction) = match stack.pop() {
-                    Some(x) => Ok(x),
-                    None => Err(BrainfuckError::ParseError {
-                        location: (ip, 0).into(),
-                        src: prog.into(),
-                        err_type: LoopErrorType::UnexpectedClosingBracket,
-                        char_index: ip,
-                    }),
-                }?;
+                let (loop_start, _instruction) = stack.pop().map_or_else(
+                    || {
+                        Err(BrainfuckError::ParseError {
+                            location: (ip, 0).into(),
+                            src: prog.into(),
+                            err_type: LoopErrorType::UnexpectedClosingBracket,
+                            char_index: ip,
+                        })
+                    },
+                    Ok,
+                )?;
                 loops.insert(loop_start, ip);
                 loops.insert(ip, loop_start);
             }

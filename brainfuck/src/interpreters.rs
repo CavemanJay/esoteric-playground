@@ -9,6 +9,9 @@ use std::collections::HashMap;
 /// Slower than [`interpret_fast`]
 ///
 /// This wrap-around technique is used by the currently shortest BF program that outputs hello world:
+///
+/// # Examples
+///
 /// ```
 /// use brainfuck::*;
 /// let program = "+[-->-[>>+>-----<<]<--<---]>-.>>>+.>>..+++[.>]<<<<.+++.------.<<-.>>>>+.";
@@ -42,7 +45,7 @@ pub fn interpret_with_wrapping(prog: &str) -> Result<String, BrainfuckError> {
                 if user_input.is_empty() {
                     user_input = get_input(prog, &ctx)?;
                 }
-                *cell_val = user_input.remove(0) as Cell
+                *cell_val = user_input.remove(0) as Cell;
             }
             '[' if *cell_val == 0 => ctx.instruction_ptr = loop_table[&ctx.instruction_ptr],
             ']' if *cell_val != 0 => ctx.instruction_ptr = loop_table[&ctx.instruction_ptr],
@@ -75,10 +78,10 @@ pub fn interpret_fast(prog: &str) -> Result<String, BrainfuckError> {
             '+' => *cell_val = cell_val.wrapping_add(1),
             '-' => *cell_val = cell_val.wrapping_sub(1),
             '<' => {
-                cell_index = match cell_index.checked_sub(1) {
-                    Some(i) => Ok(i),
-                    None => Err(ctx.to_error(prog, ExecutionErrorType::CellIndexUnderflow)),
-                }?;
+                cell_index = cell_index.checked_sub(1).map_or_else(
+                    || Err(ctx.to_error(prog, ExecutionErrorType::CellIndexUnderflow)),
+                    Ok,
+                )?;
             }
             '>' => {
                 cell_index += 1;
@@ -91,7 +94,7 @@ pub fn interpret_fast(prog: &str) -> Result<String, BrainfuckError> {
                 if user_input.is_empty() {
                     user_input = get_input(prog, &ctx)?;
                 }
-                *cell_val = user_input.remove(0) as Cell
+                *cell_val = user_input.remove(0) as Cell;
             }
             '[' if *cell_val == 0 => ctx.instruction_ptr = loop_table[&ctx.instruction_ptr],
             ']' if *cell_val != 0 => ctx.instruction_ptr = loop_table[&ctx.instruction_ptr],
@@ -138,7 +141,7 @@ mod tests {
     #[test]
     fn hello_world_3_wrapping_test() {
         let prog = include_str!("../data/hello_world3.bf");
-        assert_eq!("Hello, World!", interpret_with_wrapping(prog).unwrap())
+        assert_eq!("Hello, World!", interpret_with_wrapping(prog).unwrap());
     }
 
     #[test]
