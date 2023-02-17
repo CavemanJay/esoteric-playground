@@ -1,6 +1,6 @@
 use std::{env::current_dir, fs, path::PathBuf, str::FromStr};
 
-use brainfuck::{interpret, interpret_with_wrapping};
+use brainfuck::{interpret_fast, interpret_with_wrapping};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn bench_interpreters(c: &mut Criterion) {
@@ -13,7 +13,7 @@ fn bench_interpreters(c: &mut Criterion) {
         )
         .expect("Failed to read input file");
         group.bench_with_input(BenchmarkId::new("basic", prog_file), &prog, |b, program| {
-            b.iter(|| interpret(program))
+            b.iter(|| interpret_fast(program))
         });
         group.bench_with_input(
             BenchmarkId::new("wrapping", prog_file),
