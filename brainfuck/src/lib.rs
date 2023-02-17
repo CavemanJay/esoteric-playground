@@ -1,12 +1,15 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 #![allow(dead_code, clippy::missing_errors_doc)]
-pub mod interpreters;
-pub use interpreters::*;
+// pub mod interpreters;
+pub mod memory;
+// pub use interpreters::*;
+use memory::Memory;
 use miette::{Diagnostic, Result, SourceSpan};
-use std::{collections::HashMap, default::Default, hash::BuildHasher, io, marker::PhantomData};
+use std::{collections::HashMap, default::Default, io};
 use thiserror::Error;
 
 type Cell = u8;
+type CellIndex = usize;
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum BrainfuckError {
@@ -25,7 +28,7 @@ pub enum BrainfuckError {
     ExecutionError {
         #[source_code]
         src: String,
-        #[label("Occurred at instruction: {}, cycle: {}",ctx.instruction_ptr, ctx.cycle)]
+        #[label("Occurred at instruction: {}, cycle: {}", ctx.instruction_ptr, ctx.cycle)]
         location: SourceSpan,
         ctx: ExecutionContext,
         #[diagnostic_source]
@@ -35,10 +38,12 @@ pub enum BrainfuckError {
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum ExecutionErrorType {
-    #[error("Unsigned integer underflow ocurred in cell index")]
-    CellIndexUnderflow,
+    // #[error("Unsigned integer underflow ocurred in cell index")]
+    // CellIndexUnderflow,
     #[error("Could not retrieve user input")]
     InputError(#[from] io::Error),
+    #[error("An error occurred while interacting with the program's memory")]
+    MemoryError(#[from] memory::Error),
 }
 
 #[derive(Error, Diagnostic, Debug)]
@@ -50,6 +55,12 @@ pub enum LoopErrorType {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum LoopType {
+    Start,
+    End,
+}
+
+#[derive(Debug, Clone, Copy)]
 enum Token {
     Increment,
     Decrement,
@@ -57,8 +68,7 @@ enum Token {
     MoveRight,
     Print,
     Input,
-    LoopStart,
-    LoopEnd,
+    Loop(LoopType),
     Other,
     // Other(char),
 }
@@ -66,29 +76,81 @@ enum Token {
 type LoopMap = HashMap<usize, usize>;
 
 #[derive(Debug, Clone, Default)]
-pub struct BrainfuckProgram<'a, M, I>
+pub struct BrainfuckProgram<'a, M>
 where
-    M: Memory<I>,
+    M: Memory,
 {
     instructions: Vec<Token>,
     src: &'a str,
     ctx: ExecutionContext,
     loop_locations: LoopMap,
     tape: M,
-    phantom: PhantomData<I>,
 }
 
-impl<'a, M, I> BrainfuckProgram<'a, M, I>
+impl<'a, M> BrainfuckProgram<'a, M>
 where
-    M: Memory<I>,
+    M: Memory,
 {
+    fn execution_err(&self, e: ExecutionErrorType) -> BrainfuckError {
+        BrainfuckError::ExecutionError {
+            src: self.src.to_string(),
+            location: (self.ctx.instruction_ptr, 0).into(),
+            ctx: self.ctx,
+            err_type: e,
+        }
+    }
+
     pub fn step(&mut self, ip: usize) {
         self.ctx.cycle += 1;
         self.ctx.instruction_ptr = ip;
     }
+
+    pub fn increment_cell(&mut self) -> Result<(), BrainfuckError> {
+        self.tape
+            .modify(self.ctx.cell_index, |cell| cell.wrapping_add(1))
+            .map_err(|e| self.execution_err(e.into()))
+    }
+
+    pub fn decrement_cell(&mut self) -> Result<(), BrainfuckError> {
+        self.tape
+            .modify(self.ctx.cell_index, |cell| cell.wrapping_sub(1))
+            .map_err(|e| self.execution_err(e.into()))
+    }
+
+    pub fn move_right(&mut self) -> Result<(), BrainfuckError> {
+        let new_index = self
+            .tape
+            .move_right(self.ctx.cell_index)
+            .map_err(|e| self.execution_err(e.into()))?;
+        self.ctx.cell_index = new_index;
+        Ok(())
+    }
+
+    pub fn move_left(&mut self) -> Result<(), BrainfuckError> {
+        let new_index = self
+            .tape
+            .move_left(self.ctx.cell_index)
+            .map_err(|e| self.execution_err(e.into()))?;
+        self.ctx.cell_index = new_index;
+        Ok(())
+    }
+
+    pub fn jump(&mut self, jump_type: LoopType) -> Result<(), BrainfuckError> {
+        let cell_val = self
+            .tape
+            .cell_value(self.ctx.cell_index)
+            .map_err(|e| self.execution_err(e.into()))?;
+        match jump_type {
+            LoopType::Start if cell_val == 0 => todo!(),
+            LoopType::End if cell_val != 0 => todo!(),
+            _ => {
+                panic!()
+            }
+        }
+    }
 }
 
-impl<'a> BrainfuckProgram<'a, Vec<Cell>, usize> {
+impl<'a> BrainfuckProgram<'a, Vec<Cell>> {
     pub fn linear_memory_executor(src: &'a str) -> Result<Self, BrainfuckError> {
         Ok(Self {
             instructions: parse(src),
@@ -96,13 +158,12 @@ impl<'a> BrainfuckProgram<'a, Vec<Cell>, usize> {
             ctx: ExecutionContext::default(),
             loop_locations: verify_loops(src)?,
             tape: Vec::initial_state(),
-            phantom: PhantomData,
         })
     }
 }
 
 #[allow(clippy::implicit_hasher)]
-impl<'a> BrainfuckProgram<'a, HashMap<usize, Cell>, usize> {
+impl<'a> BrainfuckProgram<'a, HashMap<usize, Cell>> {
     pub fn wrapping_executor(src: &'a str) -> Result<Self, BrainfuckError> {
         Ok(Self {
             instructions: parse(src),
@@ -110,48 +171,13 @@ impl<'a> BrainfuckProgram<'a, HashMap<usize, Cell>, usize> {
             ctx: ExecutionContext::default(),
             loop_locations: verify_loops(src)?,
             tape: HashMap::initial_state(),
-            phantom: PhantomData,
         })
     }
 }
 
-pub trait Memory<I> {
-    fn initial_state() -> Self;
-    fn increment(&mut self, index: I);
-}
-
-impl<S> Memory<usize> for HashMap<usize, Cell, S>
+impl<'a, M> BrainfuckProgram<'a, M>
 where
-    S: BuildHasher + Default,
-{
-    #[inline]
-    fn initial_state() -> Self {
-        Self::from_iter([(0, 0)])
-    }
-
-    #[inline]
-    fn increment(&mut self, index: usize) {
-        let cell_val = self.get_mut(&index).unwrap();
-        *cell_val = cell_val.wrapping_add(1);
-    }
-}
-
-impl Memory<usize> for Vec<Cell> {
-    #[inline]
-    fn initial_state() -> Self {
-        vec![0]
-    }
-
-    #[inline]
-    fn increment(&mut self, index: usize) {
-        let cell_val = self.get_mut(index).unwrap();
-        *cell_val = cell_val.wrapping_add(1);
-    }
-}
-
-impl<'a, M, I> BrainfuckProgram<'a, M, I>
-where
-    M: Memory<I>,
+    M: Memory,
 {
     pub fn new(src: &'a str) -> Result<Self, BrainfuckError> {
         Ok(Self {
@@ -160,7 +186,6 @@ where
             ctx: ExecutionContext::default(),
             loop_locations: verify_loops(src)?,
             tape: M::initial_state(),
-            phantom: PhantomData,
         })
     }
 }
@@ -169,9 +194,11 @@ where
 pub struct ExecutionContext {
     instruction_ptr: usize,
     cycle: usize,
+    cell_index: usize,
 }
 
 impl ExecutionContext {
+    #[deprecated]
     fn to_error(self, program: &str, e: ExecutionErrorType) -> BrainfuckError {
         BrainfuckError::ExecutionError {
             src: program.to_string(),
@@ -191,18 +218,21 @@ fn parse(prog: &str) -> Vec<Token> {
             '>' => Token::MoveRight,
             '.' => Token::Print,
             ',' => Token::Input,
-            '[' => Token::LoopStart,
-            ']' => Token::LoopEnd,
+            '[' => Token::Loop(LoopType::Start),
+            ']' => Token::Loop(LoopType::End),
             _ => Token::Other,
         })
         .collect()
 }
 
-fn get_input(program: &str, ctx: &ExecutionContext) -> Result<Vec<char>, BrainfuckError> {
+fn get_input<M>(program: &BrainfuckProgram<M>) -> Result<Vec<char>, BrainfuckError>
+where
+    M: Memory,
+{
     let mut line = String::new();
     std::io::stdin()
         .read_line(&mut line)
-        .map_err(|e| ctx.to_error(program, e.into()))?;
+        .map_err(|e| program.execution_err(e.into()))?;
     Ok(line.chars().collect())
 }
 
