@@ -1,13 +1,12 @@
-use crate::{
-    utils::{find_loops, get_input},
-    Cell,
-};
+use crate::{find_loops, get_input, Cell};
 use std::collections::HashMap;
 
 /// Takes a brainfuck program and calculates the resulting [String] output.
 /// Accepts wrapping indices.
 ///
-/// This version of the function uses wrap-around indices which allows BF programs to end up with arbitrarily large indices
+/// This version of the function uses wrap-around indices which allows BF programs to end up with arbitrarily large indices.
+///
+/// Slower than [`interpret_fast`]
 ///
 /// This wrap-around technique is used by the currently shortest BF program that outputs hello world:
 /// ```
@@ -55,7 +54,7 @@ pub fn interpret_with_wrapping(prog: &str) -> String {
 /// Does not accept wrapping indices.
 ///
 /// Translated from: https://github.com/Camto/Shorterpreters/blob/master/Brainfuck/brainfuck.py
-pub fn interpret(prog: &str) -> String {
+pub fn interpret_fast(prog: &str) -> String {
     let loop_table = find_loops(prog);
     let prog = prog.as_bytes();
     let mut user_input: Vec<char> = Vec::new();
@@ -99,20 +98,20 @@ mod tests {
     #[test]
     fn hello_world_test() {
         let prog = include_str!("../data/hello_world.bf");
-        assert_eq!("Hello World!\n", interpret(prog))
+        assert_eq!("Hello World!\n", interpret_fast(prog))
     }
 
     #[test]
     fn hello_world_2_test() {
         let prog = include_str!("../data/hello_world2.bf");
-        assert_eq!("Hello World!\n", interpret(prog))
+        assert_eq!("Hello World!\n", interpret_fast(prog))
     }
 
     #[test]
     #[should_panic]
     fn hello_world_3_panics() {
         let prog = include_str!("../data/hello_world3.bf");
-        interpret(prog);
+        interpret_fast(prog);
     }
 
     #[test]
