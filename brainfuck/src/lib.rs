@@ -3,7 +3,7 @@
 pub mod interpreters;
 pub use interpreters::*;
 use miette::{Diagnostic, Result, SourceSpan};
-use std::{collections::HashMap, io};
+use std::{collections::HashMap, default::Default, hash::BuildHasher, io, marker::PhantomData};
 use thiserror::Error;
 
 type Cell = u8;
@@ -49,19 +49,121 @@ pub enum LoopErrorType {
     UnexpectedClosingBracket,
 }
 
-enum Operation {
+#[derive(Debug, Clone, Copy)]
+enum Token {
     Increment,
     Decrement,
     MoveLeft,
     MoveRight,
     Print,
     Input,
-    LoopStart(usize),
-    LoopEnd(usize),
-    Other(char),
+    LoopStart,
+    LoopEnd,
+    Other,
+    // Other(char),
 }
 
-struct BrainfuckProgram {}
+type LoopMap = HashMap<usize, usize>;
+
+#[derive(Debug, Clone, Default)]
+pub struct BrainfuckProgram<'a, M, I>
+where
+    M: Memory<I>,
+{
+    instructions: Vec<Token>,
+    src: &'a str,
+    ctx: ExecutionContext,
+    loop_locations: LoopMap,
+    tape: M,
+    phantom: PhantomData<I>,
+}
+
+impl<'a, M, I> BrainfuckProgram<'a, M, I>
+where
+    M: Memory<I>,
+{
+    pub fn step(&mut self, ip: usize) {
+        self.ctx.cycle += 1;
+        self.ctx.instruction_ptr = ip;
+    }
+}
+
+impl<'a> BrainfuckProgram<'a, Vec<Cell>, usize> {
+    pub fn linear_memory_executor(src: &'a str) -> Result<Self, BrainfuckError> {
+        Ok(Self {
+            instructions: parse(src),
+            src,
+            ctx: ExecutionContext::default(),
+            loop_locations: verify_loops(src)?,
+            tape: Vec::initial_state(),
+            phantom: PhantomData,
+        })
+    }
+}
+
+#[allow(clippy::implicit_hasher)]
+impl<'a> BrainfuckProgram<'a, HashMap<usize, Cell>, usize> {
+    pub fn wrapping_executor(src: &'a str) -> Result<Self, BrainfuckError> {
+        Ok(Self {
+            instructions: parse(src),
+            src,
+            ctx: ExecutionContext::default(),
+            loop_locations: verify_loops(src)?,
+            tape: HashMap::initial_state(),
+            phantom: PhantomData,
+        })
+    }
+}
+
+pub trait Memory<I> {
+    fn initial_state() -> Self;
+    fn increment(&mut self, index: I);
+}
+
+impl<S> Memory<usize> for HashMap<usize, Cell, S>
+where
+    S: BuildHasher + Default,
+{
+    #[inline]
+    fn initial_state() -> Self {
+        Self::from_iter([(0, 0)])
+    }
+
+    #[inline]
+    fn increment(&mut self, index: usize) {
+        let cell_val = self.get_mut(&index).unwrap();
+        *cell_val = cell_val.wrapping_add(1);
+    }
+}
+
+impl Memory<usize> for Vec<Cell> {
+    #[inline]
+    fn initial_state() -> Self {
+        vec![0]
+    }
+
+    #[inline]
+    fn increment(&mut self, index: usize) {
+        let cell_val = self.get_mut(index).unwrap();
+        *cell_val = cell_val.wrapping_add(1);
+    }
+}
+
+impl<'a, M, I> BrainfuckProgram<'a, M, I>
+where
+    M: Memory<I>,
+{
+    pub fn new(src: &'a str) -> Result<Self, BrainfuckError> {
+        Ok(Self {
+            instructions: parse(src),
+            src,
+            ctx: ExecutionContext::default(),
+            loop_locations: verify_loops(src)?,
+            tape: M::initial_state(),
+            phantom: PhantomData,
+        })
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ExecutionContext {
@@ -80,22 +182,20 @@ impl ExecutionContext {
     }
 }
 
-fn parse(prog: &str) -> Result<BrainfuckProgram, ()> {
-    let _instructions = prog
-        .char_indices()
-        .map(|(ip, instruction)| match instruction {
-            '+' => Operation::Increment,
-            '-' => Operation::Decrement,
-            '<' => Operation::MoveLeft,
-            '>' => Operation::MoveRight,
-            '.' => Operation::Print,
-            ',' => Operation::Input,
-            '[' => Operation::LoopStart(ip),
-            ']' => Operation::LoopEnd(ip),
-            c => Operation::Other(c),
-        });
-    // .collect();
-    unimplemented!()
+fn parse(prog: &str) -> Vec<Token> {
+    prog.chars()
+        .map(|instruction| match instruction {
+            '+' => Token::Increment,
+            '-' => Token::Decrement,
+            '<' => Token::MoveLeft,
+            '>' => Token::MoveRight,
+            '.' => Token::Print,
+            ',' => Token::Input,
+            '[' => Token::LoopStart,
+            ']' => Token::LoopEnd,
+            _ => Token::Other,
+        })
+        .collect()
 }
 
 fn get_input(program: &str, ctx: &ExecutionContext) -> Result<Vec<char>, BrainfuckError> {
@@ -116,7 +216,7 @@ pub(crate) fn print_tape(ip: usize, tape: &[Cell]) {
     );
 }
 
-fn verify_loops(prog: &str) -> Result<HashMap<usize, usize>, BrainfuckError> {
+fn verify_loops(prog: &str) -> Result<LoopMap, BrainfuckError> {
     let mut stack = Vec::with_capacity(100);
     let mut loops = HashMap::new();
     for (ip, instruction) in prog.char_indices() {
