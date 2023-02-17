@@ -26,7 +26,9 @@ pub fn interpret_with_wrapping(prog: &str) -> Result<String, BrainfuckError> {
     while ip < prog.len() {
         let instruction = prog[ip] as char;
         tape.entry(cell_index).or_insert(0);
-        let cell_val = tape.get_mut(&cell_index).expect("Failed to get a mutable reference to the current cell value");
+        let cell_val = tape
+            .get_mut(&cell_index)
+            .expect("Failed to get a mutable reference to the current cell value");
         match instruction {
             '+' => *cell_val = cell_val.wrapping_add(1),
             '-' => *cell_val = cell_val.wrapping_sub(1),
@@ -66,7 +68,9 @@ pub fn interpret_fast(prog: &str) -> Result<String, BrainfuckError> {
     let mut output = String::new();
     while ip < prog_bytes.len() {
         let instruction = prog_bytes[ip] as char;
-        let cell_val = tape.get_mut(cell_index).expect("Failed to get a mutable reference to the current cell value");
+        let cell_val = tape
+            .get_mut(cell_index)
+            .expect("Failed to get a mutable reference to the current cell value");
         match instruction {
             '+' => *cell_val = cell_val.wrapping_add(1),
             '-' => *cell_val = cell_val.wrapping_sub(1),

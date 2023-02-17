@@ -1,4 +1,4 @@
-use std::{env::current_dir, fs, path::PathBuf, str::FromStr};
+use std::{env::current_dir, fs, path::PathBuf};
 
 use brainfuck::{interpret_fast, interpret_with_wrapping};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};

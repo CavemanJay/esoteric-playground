@@ -1,5 +1,17 @@
 #![allow(dead_code)]
-#![warn(clippy::unwrap_used)]
+#![warn(
+    clippy::unwrap_used,
+    clippy::doc_markdown,
+    clippy::checked_conversions,
+    clippy::almost_swapped,
+    clippy::absurd_extreme_comparisons,
+    clippy::unnecessary_cast,
+    future_incompatible,
+    nonstandard_style,
+    rustdoc::all,
+    anonymous_parameters,
+    absolute_paths_not_starting_with_crate
+)]
 pub mod interpreters;
 pub use interpreters::*;
 use miette::{Diagnostic, Result, SourceSpan};
