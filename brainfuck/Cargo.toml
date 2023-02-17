@@ -11,7 +11,7 @@ dhat-heap = ["dhat"]
 
 [dependencies]
 dhat = { version = "0.3.2", optional = true }
-miette = { version = "5.5.0", features = ["fancy"] }
+miette = { version = "5.5.0" }
 thiserror = "1.0.38"
 
 [dev-dependencies]
