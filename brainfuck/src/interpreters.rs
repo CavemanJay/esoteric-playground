@@ -1,4 +1,4 @@
-use crate::{get_input, verify_loops, BrainfuckError, Cell, ExecutionErrorType};
+use crate::{get_input, verify_loops, BrainfuckError, Cell, ExecutionContext, ExecutionErrorType};
 use std::collections::HashMap;
 
 /// Takes a brainfuck program and calculates the resulting [String] output.
@@ -17,14 +17,14 @@ use std::collections::HashMap;
 /// ```
 pub fn interpret_with_wrapping(prog: &str) -> Result<String, BrainfuckError> {
     let loop_table = verify_loops(prog)?;
-    let prog = prog.as_bytes();
+    let prog_bytes = prog.as_bytes();
     let mut user_input: Vec<char> = Vec::new();
     let mut tape: HashMap<usize, Cell> = HashMap::from_iter([(0, 0)]);
-    let mut ip = 0;
+    let mut ctx = ExecutionContext::default();
     let mut cell_index = 0;
     let mut output = String::new();
-    while ip < prog.len() {
-        let instruction = prog[ip] as char;
+    while ctx.instruction_ptr < prog_bytes.len() {
+        let instruction = prog_bytes[ctx.instruction_ptr] as char;
         tape.entry(cell_index).or_insert(0);
         let cell_val = tape
             .get_mut(&cell_index)
@@ -40,15 +40,16 @@ pub fn interpret_with_wrapping(prog: &str) -> Result<String, BrainfuckError> {
             '.' => output.push(*cell_val as char),
             ',' => {
                 if user_input.is_empty() {
-                    user_input = get_input();
+                    user_input = get_input(prog, &ctx)?;
                 }
                 *cell_val = user_input.remove(0) as Cell
             }
-            '[' if *cell_val == 0 => ip = loop_table[&ip],
-            ']' if *cell_val != 0 => ip = loop_table[&ip],
+            '[' if *cell_val == 0 => ctx.instruction_ptr = loop_table[&ctx.instruction_ptr],
+            ']' if *cell_val != 0 => ctx.instruction_ptr = loop_table[&ctx.instruction_ptr],
             _ => {}
         }
-        ip += 1
+        ctx.instruction_ptr += 1;
+        ctx.cycle += 1;
     }
     Ok(output)
 }
@@ -56,18 +57,17 @@ pub fn interpret_with_wrapping(prog: &str) -> Result<String, BrainfuckError> {
 /// Takes a brainfuck program and calculates the resulting [String] output.
 /// Does not accept wrapping indices.
 ///
-/// Translated from: https://github.com/Camto/Shorterpreters/blob/master/Brainfuck/brainfuck.py
+/// Translated from: <https://github.com/Camto/Shorterpreters/blob/master/Brainfuck/brainfuck.py>
 pub fn interpret_fast(prog: &str) -> Result<String, BrainfuckError> {
     let loop_table = verify_loops(prog)?;
     let prog_bytes = prog.as_bytes();
     let mut user_input: Vec<char> = Vec::new();
     let mut tape: Vec<Cell> = Vec::from([0]);
-    let mut ip = 0;
-    let mut cycle = 0;
+    let mut ctx = ExecutionContext::default();
     let mut cell_index = 0;
     let mut output = String::new();
-    while ip < prog_bytes.len() {
-        let instruction = prog_bytes[ip] as char;
+    while ctx.instruction_ptr < prog_bytes.len() {
+        let instruction = prog_bytes[ctx.instruction_ptr] as char;
         let cell_val = tape
             .get_mut(cell_index)
             .expect("Failed to get a mutable reference to the current cell value");
@@ -77,13 +77,7 @@ pub fn interpret_fast(prog: &str) -> Result<String, BrainfuckError> {
             '<' => {
                 cell_index = match cell_index.checked_sub(1) {
                     Some(i) => Ok(i),
-                    None => Err(BrainfuckError::ExecutionError {
-                        location: (ip, 0).into(),
-                        err_type: ExecutionErrorType::CellIndexUnderflow,
-                        src: prog.to_string(),
-                        instruction_ptr: ip,
-                        cycle,
-                    }),
+                    None => Err(ctx.to_error(prog, ExecutionErrorType::CellIndexUnderflow)),
                 }?;
             }
             '>' => {
@@ -95,21 +89,22 @@ pub fn interpret_fast(prog: &str) -> Result<String, BrainfuckError> {
             '.' => output.push(*cell_val as char),
             ',' => {
                 if user_input.is_empty() {
-                    user_input = get_input();
+                    user_input = get_input(prog, &ctx)?;
                 }
                 *cell_val = user_input.remove(0) as Cell
             }
-            '[' if *cell_val == 0 => ip = loop_table[&ip],
-            ']' if *cell_val != 0 => ip = loop_table[&ip],
+            '[' if *cell_val == 0 => ctx.instruction_ptr = loop_table[&ctx.instruction_ptr],
+            ']' if *cell_val != 0 => ctx.instruction_ptr = loop_table[&ctx.instruction_ptr],
             _ => {}
         }
-        ip += 1;
-        cycle += 1;
+        ctx.instruction_ptr += 1;
+        ctx.cycle += 1;
     }
     Ok(output)
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

@@ -15,7 +15,7 @@
 pub mod interpreters;
 pub use interpreters::*;
 use miette::{Diagnostic, Result, SourceSpan};
-use std::collections::HashMap;
+use std::{collections::HashMap, io};
 use thiserror::Error;
 
 type Cell = u8;
@@ -37,10 +37,9 @@ pub enum BrainfuckError {
     ExecutionError {
         #[source_code]
         src: String,
-        #[label("Occurred at instruction: {instruction_ptr}, cycle: {cycle}")]
+        #[label("Occurred at instruction: {}, cycle: {}",ctx.instruction_ptr, ctx.cycle)]
         location: SourceSpan,
-        instruction_ptr: usize,
-        cycle: usize,
+        ctx: ExecutionContext,
         #[diagnostic_source]
         err_type: ExecutionErrorType,
     },
@@ -48,8 +47,10 @@ pub enum BrainfuckError {
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum ExecutionErrorType {
-    #[error("Negative unsigned integer overflow ocurred in cell index")]
+    #[error("Unsigned integer underflow ocurred in cell index")]
     CellIndexUnderflow,
+    #[error("Could not retrieve user input")]
+    InputError(#[from] io::Error),
 }
 
 #[derive(Error, Diagnostic, Debug)]
@@ -74,6 +75,23 @@ enum Operation {
 
 struct BrainfuckProgram {}
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ExecutionContext {
+    instruction_ptr: usize,
+    cycle: usize,
+}
+
+impl ExecutionContext {
+    fn to_error(self, program: &str, e: ExecutionErrorType) -> BrainfuckError {
+        BrainfuckError::ExecutionError {
+            src: program.to_string(),
+            location: (self.instruction_ptr, 0).into(),
+            ctx: self,
+            err_type: e,
+        }
+    }
+}
+
 fn parse(prog: &str) -> Result<BrainfuckProgram, ()> {
     let _instructions = prog
         .char_indices()
@@ -92,10 +110,12 @@ fn parse(prog: &str) -> Result<BrainfuckProgram, ()> {
     unimplemented!()
 }
 
-pub(crate) fn get_input() -> Vec<char> {
+fn get_input(program: &str, ctx: &ExecutionContext) -> Result<Vec<char>, BrainfuckError> {
     let mut line = String::new();
-    std::io::stdin().read_line(&mut line).unwrap();
-    line.chars().collect()
+    std::io::stdin()
+        .read_line(&mut line)
+        .map_err(|e| ctx.to_error(program, e.into()))?;
+    Ok(line.chars().collect())
 }
 
 pub(crate) fn print_tape(ip: usize, tape: &[Cell]) {
@@ -145,6 +165,7 @@ fn verify_loops(prog: &str) -> Result<HashMap<usize, usize>, BrainfuckError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
