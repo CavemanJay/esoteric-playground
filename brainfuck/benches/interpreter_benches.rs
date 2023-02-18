@@ -1,6 +1,7 @@
+#![allow(clippy::all, unused_imports, dead_code, unused_variables)]
 use std::{env::current_dir, fs};
 
-use brainfuck::{interpret_fast, interpret_with_wrapping};
+use brainfuck::BrainfuckProgram;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn bench_interpreters(c: &mut Criterion) {
@@ -9,12 +10,12 @@ fn bench_interpreters(c: &mut Criterion) {
         let prog = fs::read_to_string(current_dir().unwrap().join("data").join(prog_file))
             .expect("Failed to read input file");
         group.bench_with_input(BenchmarkId::new("basic", prog_file), &prog, |b, program| {
-            b.iter(|| interpret_fast(program))
+            b.iter(|| BrainfuckProgram::wrapping_executor(program).unwrap().run())
         });
         group.bench_with_input(
             BenchmarkId::new("wrapping", prog_file),
             &prog,
-            |b, program| b.iter(|| interpret_with_wrapping(program)),
+            |b, program| b.iter(|| BrainfuckProgram::linear_memory_executor(program)),
         );
     }
     group.finish();
