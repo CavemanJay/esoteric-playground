@@ -1,8 +1,8 @@
 #![warn(clippy::pedantic, clippy::nursery)]
-#![allow(dead_code, clippy::missing_errors_doc)]
-// pub mod interpreters;
+#![allow(clippy::missing_errors_doc)]
+pub mod engines;
 pub mod memory;
-// pub use interpreters::*;
+pub use engines::{LinearEngine, WrappingEngine};
 use memory::Memory;
 use miette::{Diagnostic, Result, SourceSpan};
 use std::{collections::HashMap, default::Default, io};
@@ -75,7 +75,7 @@ enum Token {
 type LoopMap = HashMap<usize, usize>;
 
 #[derive(Debug, Clone, Default)]
-pub struct BrainfuckProgram<'a, M>
+struct BrainfuckProgram<'a, M>
 where
     M: Memory,
 {
@@ -206,28 +206,14 @@ where
 
 impl<'a> BrainfuckProgram<'a, Vec<Cell>> {
     pub fn linear_memory_executor(src: &'a str) -> Result<Self, BrainfuckError> {
-        Ok(Self {
-            instructions: parse(src),
-            src,
-            ctx: ExecutionContext::default(),
-            loop_table: verify_loops(src)?,
-            tape: Vec::initial_state(),
-            user_input: Default::default(),
-        })
+        Self::new(src)
     }
 }
 
 #[allow(clippy::implicit_hasher)]
 impl<'a> BrainfuckProgram<'a, HashMap<usize, Cell>> {
     pub fn wrapping_executor(src: &'a str) -> Result<Self, BrainfuckError> {
-        Ok(Self {
-            instructions: parse(src),
-            src,
-            ctx: ExecutionContext::default(),
-            loop_table: verify_loops(src)?,
-            tape: HashMap::initial_state(),
-            user_input: Default::default(),
-        })
+        Self::new(src)
     }
 }
 
@@ -241,8 +227,8 @@ where
             src,
             ctx: ExecutionContext::default(),
             loop_table: verify_loops(src)?,
-            tape: M::initial_state(),
-            user_input: Default::default(),
+            tape: M::init(),
+            user_input: Vec::default(),
         })
     }
 }

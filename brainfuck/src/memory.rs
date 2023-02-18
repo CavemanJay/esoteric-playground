@@ -15,7 +15,7 @@ pub enum Error {
 }
 
 pub trait Memory {
-    fn initial_state() -> Self;
+    fn init() -> Self;
     fn modify<F>(&mut self, index: usize, op: F) -> Result<(), Error>
     where
         F: Fn(Cell) -> Cell;
@@ -29,7 +29,7 @@ where
     S: BuildHasher + Default,
 {
     #[inline]
-    fn initial_state() -> Self {
+    fn init() -> Self {
         Self::from_iter([(0, 0)])
     }
 
@@ -65,7 +65,7 @@ where
 
 impl Memory for Vec<Cell> {
     #[inline]
-    fn initial_state() -> Self {
+    fn init() -> Self {
         vec![0]
     }
 
