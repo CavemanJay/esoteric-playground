@@ -1,8 +1,10 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 #![allow(clippy::missing_errors_doc)]
 pub mod engines;
+pub mod iterator;
 pub mod memory;
 pub use engines::{LinearEngine, WrappingEngine};
+pub use iterator::BrainfuckIterator;
 use memory::Memory;
 use miette::{Diagnostic, Result, SourceSpan};
 use std::{collections::HashMap, default::Default, io};
@@ -34,6 +36,15 @@ pub enum Error {
         #[diagnostic_source]
         err_type: ExecutionErrorType,
     },
+}
+
+#[derive(Debug)]
+pub struct Snapshot<M: Memory> {
+    pub tape: M,
+    pub cycle: usize,
+    pub ip: usize,
+    pub output: String,
+    pub index: usize,
 }
 
 #[derive(Error, Diagnostic, Debug)]
@@ -90,7 +101,7 @@ where
 
 impl<'a, M> BrainfuckProgram<'a, M>
 where
-    M: Memory,
+    M: Memory + Clone,
 {
     fn execution_err(&self, e: ExecutionErrorType) -> Error {
         Error::ExecutionError {
@@ -99,6 +110,16 @@ where
             ctx: self.ctx,
             err_type: e,
         }
+    }
+
+    fn snapshot(&self) -> Snapshot<M> {
+        Snapshot::new(
+            self.tape.clone(),
+            self.ctx.cycle,
+            self.ctx.instruction_ptr,
+            self.output.clone(),
+            self.ctx.cell_index,
+        )
     }
 
     fn step(&mut self) -> Result<(), Error> {
