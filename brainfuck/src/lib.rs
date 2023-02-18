@@ -12,7 +12,7 @@ type Cell = u8;
 type CellIndex = usize;
 
 #[derive(Error, Diagnostic, Debug)]
-pub enum BrainfuckError {
+pub enum Error {
     #[error("Could not parse program")]
     #[diagnostic(code(something))]
     ParseError {
@@ -85,14 +85,15 @@ where
     loop_table: LoopMap,
     tape: M,
     user_input: Vec<char>,
+    output: String,
 }
 
 impl<'a, M> BrainfuckProgram<'a, M>
 where
     M: Memory,
 {
-    fn execution_err(&self, e: ExecutionErrorType) -> BrainfuckError {
-        BrainfuckError::ExecutionError {
+    fn execution_err(&self, e: ExecutionErrorType) -> Error {
+        Error::ExecutionError {
             src: self.src.to_string(),
             location: (self.ctx.instruction_ptr, 0).into(),
             ctx: self.ctx,
@@ -100,24 +101,36 @@ where
         }
     }
 
-    fn step(&mut self, ip: usize) {
+    fn step(&mut self) -> Result<(), Error> {
+        let instruction = self.instructions[self.ctx.instruction_ptr];
+        match instruction {
+            Token::Increment => self.increment_cell()?,
+            Token::Decrement => self.decrement_cell()?,
+            Token::MoveLeft => self.move_left()?,
+            Token::MoveRight => self.move_right()?,
+            Token::Print => self.output.push(self.cell_value()? as char),
+            Token::Input => self.get_input()?,
+            Token::Loop(l) => self.jump(l)?,
+            Token::Other => {}
+        };
         self.ctx.cycle += 1;
-        self.ctx.instruction_ptr = ip;
+        self.ctx.instruction_ptr += 1;
+        Ok(())
     }
 
-    fn increment_cell(&mut self) -> Result<(), BrainfuckError> {
+    fn increment_cell(&mut self) -> Result<(), Error> {
         self.tape
             .modify(self.ctx.cell_index, |cell| cell.wrapping_add(1))
             .map_err(|e| self.execution_err(e.into()))
     }
 
-    fn decrement_cell(&mut self) -> Result<(), BrainfuckError> {
+    fn decrement_cell(&mut self) -> Result<(), Error> {
         self.tape
             .modify(self.ctx.cell_index, |cell| cell.wrapping_sub(1))
             .map_err(|e| self.execution_err(e.into()))
     }
 
-    fn move_right(&mut self) -> Result<(), BrainfuckError> {
+    fn move_right(&mut self) -> Result<(), Error> {
         let new_index = self
             .tape
             .move_right(self.ctx.cell_index)
@@ -126,13 +139,13 @@ where
         Ok(())
     }
 
-    fn set_cell_val(&mut self, val: Cell) -> Result<(), BrainfuckError> {
+    fn set_cell_val(&mut self, val: Cell) -> Result<(), Error> {
         self.tape
             .modify(self.ctx.cell_index, |_| val)
             .map_err(|e| self.execution_err(e.into()))
     }
 
-    fn get_input(&mut self) -> Result<(), BrainfuckError> {
+    fn get_input(&mut self) -> Result<(), Error> {
         if self.user_input.is_empty() {
             let mut line = String::new();
             std::io::stdin()
@@ -145,7 +158,7 @@ where
         Ok(())
     }
 
-    fn move_left(&mut self) -> Result<(), BrainfuckError> {
+    fn move_left(&mut self) -> Result<(), Error> {
         let new_index = self
             .tape
             .move_left(self.ctx.cell_index)
@@ -155,15 +168,15 @@ where
     }
 
     #[inline]
-    fn cell_value(&self) -> Result<Cell, BrainfuckError> {
+    fn cell_value(&self) -> Result<Cell, Error> {
         self.tape
             .cell_value(self.ctx.cell_index)
             .map_err(|e| self.execution_err(e.into()))
     }
 
-    fn jump(&mut self, jump_type: LoopType) -> Result<(), BrainfuckError> {
+    fn jump(&mut self, jump_type: LoopType) -> Result<(), Error> {
         let cell_val = self.cell_value()?;
-        let mut set_ip = || -> Result<(), BrainfuckError> {
+        let mut set_ip = || -> Result<(), Error> {
             self.ctx.instruction_ptr = self
                 .loop_table
                 .get(&self.ctx.instruction_ptr)
@@ -184,35 +197,24 @@ where
         }
     }
 
-    pub fn run(&mut self) -> Result<String, BrainfuckError> {
-        let mut output = String::new();
+    // pub fn run(&mut self) -> Result<&str, BrainfuckError> {
+    pub fn run(mut self) -> Result<String, Error> {
         while self.ctx.instruction_ptr < self.instructions.len() {
-            let instruction = self.instructions[self.ctx.instruction_ptr];
-            match instruction {
-                Token::Increment => self.increment_cell()?,
-                Token::Decrement => self.decrement_cell()?,
-                Token::MoveLeft => self.move_left()?,
-                Token::MoveRight => self.move_right()?,
-                Token::Print => output.push(self.cell_value()? as char),
-                Token::Input => self.get_input()?,
-                Token::Loop(l) => self.jump(l)?,
-                Token::Other => {}
-            }
-            self.step(self.ctx.instruction_ptr + 1);
+            self.step()?;
         }
-        Ok(output)
+        Ok(self.output)
     }
 }
 
 impl<'a> BrainfuckProgram<'a, Vec<Cell>> {
-    pub fn linear_memory_executor(src: &'a str) -> Result<Self, BrainfuckError> {
+    pub fn linear_memory_executor(src: &'a str) -> Result<Self, Error> {
         Self::new(src)
     }
 }
 
 #[allow(clippy::implicit_hasher)]
 impl<'a> BrainfuckProgram<'a, HashMap<usize, Cell>> {
-    pub fn wrapping_executor(src: &'a str) -> Result<Self, BrainfuckError> {
+    pub fn wrapping_executor(src: &'a str) -> Result<Self, Error> {
         Self::new(src)
     }
 }
@@ -221,7 +223,7 @@ impl<'a, M> BrainfuckProgram<'a, M>
 where
     M: Memory,
 {
-    pub fn new(src: &'a str) -> Result<Self, BrainfuckError> {
+    pub fn new(src: &'a str) -> Result<Self, Error> {
         Ok(Self {
             instructions: parse(src),
             src,
@@ -229,6 +231,7 @@ where
             loop_table: verify_loops(src)?,
             tape: M::init(),
             user_input: Vec::default(),
+            output: String::new(),
         })
     }
 }
@@ -256,7 +259,7 @@ fn parse(prog: &str) -> Vec<Token> {
         .collect()
 }
 
-fn verify_loops(prog: &str) -> Result<LoopMap, BrainfuckError> {
+fn verify_loops(prog: &str) -> Result<LoopMap, Error> {
     let mut stack = Vec::with_capacity(100);
     let mut loops = HashMap::new();
     for (ip, instruction) in prog.char_indices() {
@@ -265,7 +268,7 @@ fn verify_loops(prog: &str) -> Result<LoopMap, BrainfuckError> {
             ']' => {
                 let (loop_start, _instruction) = stack.pop().map_or_else(
                     || {
-                        Err(BrainfuckError::ParseError {
+                        Err(Error::ParseError {
                             location: (ip, 0).into(),
                             src: prog.into(),
                             err_type: LoopErrorType::UnexpectedClosingBracket,
@@ -282,7 +285,7 @@ fn verify_loops(prog: &str) -> Result<LoopMap, BrainfuckError> {
     }
     match stack.pop() {
         Some((index, instruction)) => Err(match instruction {
-            '[' => BrainfuckError::ParseError {
+            '[' => Error::ParseError {
                 location: (index, 0).into(),
                 src: prog.into(),
                 err_type: LoopErrorType::UnclosedBracket,
@@ -349,10 +352,10 @@ mod tests {
     #[case(include_str!("../data/hello_world2.bf"))]
     #[case(include_str!("../data/hello_world4.bf"))]
     fn hello_world(#[case] src: &str) {
-        let mut program = BrainfuckProgram::linear_memory_executor(src).unwrap();
+        let program = BrainfuckProgram::linear_memory_executor(src).unwrap();
         let output = program.run().unwrap();
         assert_eq!("Hello World!\n", output);
-        let mut program = BrainfuckProgram::wrapping_executor(src).unwrap();
+        let program = BrainfuckProgram::wrapping_executor(src).unwrap();
         let output = program.run().unwrap();
         assert_eq!("Hello World!\n", output);
     }
@@ -360,10 +363,10 @@ mod tests {
     #[test]
     fn hello_world_3() {
         let src = include_str!("../data/hello_world3.bf");
-        let mut program = BrainfuckProgram::wrapping_executor(src).unwrap();
+        let program = BrainfuckProgram::wrapping_executor(src).unwrap();
         let output = program.run().unwrap();
         assert_eq!("Hello, World!", output);
-        let mut program = BrainfuckProgram::linear_memory_executor(src).unwrap();
+        let program = BrainfuckProgram::linear_memory_executor(src).unwrap();
         let output = program.run();
         assert!(output.is_err());
     }

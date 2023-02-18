@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::BuildHasher};
+use std::{collections::HashMap};
 
 use crate::{Cell, CellIndex};
 use miette::{Diagnostic, Result};
@@ -13,6 +13,8 @@ pub enum Error {
     #[error("Could not access cell at index: {0}")]
     CellAccessError(usize),
 }
+pub type Linear = Vec<Cell>;
+pub type Wrapping = HashMap<usize, Cell>;
 
 pub trait Memory {
     fn init() -> Self;
@@ -24,10 +26,7 @@ pub trait Memory {
     fn cell_value(&self, index: CellIndex) -> Result<Cell, Error>;
 }
 
-impl<S> Memory for HashMap<usize, Cell, S>
-where
-    S: BuildHasher + Default,
-{
+impl Memory for Wrapping {
     #[inline]
     fn init() -> Self {
         Self::from_iter([(0, 0)])
@@ -63,7 +62,7 @@ where
     }
 }
 
-impl Memory for Vec<Cell> {
+impl Memory for Linear {
     #[inline]
     fn init() -> Self {
         vec![0]
