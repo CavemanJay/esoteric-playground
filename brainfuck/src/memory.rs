@@ -33,12 +33,6 @@ where
         Self::from_iter([(0, 0)])
     }
 
-    // #[inline]
-    // fn increment(&mut self, index: usize) {
-    //     let cell_val = self.get_mut(&index).unwrap();
-    //     *cell_val = cell_val.wrapping_add(1);
-    // }
-
     fn move_left(&mut self, index: usize) -> Result<usize, Error> {
         let cell_index = index.wrapping_sub(1);
         self.entry(cell_index).or_insert(0);
@@ -74,12 +68,6 @@ impl Memory for Vec<Cell> {
     fn initial_state() -> Self {
         vec![0]
     }
-
-    // #[inline]
-    // fn increment(&mut self, index: usize) {
-    //     let cell_val = self.get_mut(index).unwrap();
-    //     *cell_val = cell_val.wrapping_add(1);
-    // }
 
     fn move_left(&mut self, index: usize) -> Result<usize, Error> {
         let cell_index = index

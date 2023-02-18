@@ -38,8 +38,6 @@ pub enum BrainfuckError {
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum ExecutionErrorType {
-    // #[error("Unsigned integer underflow ocurred in cell index")]
-    // CellIndexUnderflow,
     #[error("Could not retrieve user input")]
     InputError(#[from] io::Error),
     #[error("An error occurred while interacting with the program's memory")]
@@ -72,7 +70,6 @@ enum Token {
     Input,
     Loop(LoopType),
     Other,
-    // Other(char),
 }
 
 type LoopMap = HashMap<usize, usize>;
@@ -127,10 +124,6 @@ where
             .map_err(|e| self.execution_err(e.into()))?;
         self.ctx.cell_index = new_index;
         Ok(())
-    }
-
-    fn print(&self) -> Result<(), BrainfuckError> {
-        todo!()
     }
 
     fn set_cell_val(&mut self, val: Cell) -> Result<(), BrainfuckError> {
@@ -275,16 +268,6 @@ fn parse(prog: &str) -> Vec<Token> {
             _ => Token::Other,
         })
         .collect()
-}
-
-pub(crate) fn print_tape(ip: usize, tape: &[Cell]) {
-    println!(
-        "{ip}: [{}]",
-        tape.iter()
-            .map(|&n| n.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
 }
 
 fn verify_loops(prog: &str) -> Result<LoopMap, BrainfuckError> {
