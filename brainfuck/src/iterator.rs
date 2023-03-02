@@ -39,7 +39,7 @@ impl<'a> TryFrom<&'a str> for BrainfuckIterator<'a, memory::Linear> {
 }
 
 impl<'a> BrainfuckIterator<'a, memory::Wrapping> {
-    fn wrapping(src: &'a str) -> Result<Self, crate::Error> {
+    pub fn wrapping(src: &'a str) -> Result<Self, crate::Error> {
         let prog = crate::BrainfuckProgram::wrapping_executor(src)?;
         Ok(Self {
             prog,
@@ -49,7 +49,7 @@ impl<'a> BrainfuckIterator<'a, memory::Wrapping> {
 }
 
 impl<'a> BrainfuckIterator<'a, memory::Linear> {
-    fn linear(src: &'a str) -> Result<Self, crate::Error> {
+    pub fn linear(src: &'a str) -> Result<Self, crate::Error> {
         let prog = crate::BrainfuckProgram::linear_memory_executor(src)?;
         Ok(Self {
             prog,
