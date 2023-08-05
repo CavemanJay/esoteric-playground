@@ -134,8 +134,6 @@ pub fn newline_terminated(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Context;
-
     use crate::to_invisible;
     use crate::to_visible;
     use crate::tokens::*;
