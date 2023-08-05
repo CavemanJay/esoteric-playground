@@ -1,22 +1,22 @@
-// #![warn(clippy::pedantic, clippy::nursery)]
+#![warn(clippy::pedantic, clippy::nursery)]
 
-use std::any;
 
-use crate::tokenizers::*;
-use nom::{IResult, Parser};
+
+use crate::tokenizers::program;
+
 use nom_supreme::error::ErrorTree;
 use nom_supreme::final_parser::final_parser;
-use nom_supreme::final_parser::{ExtractContext, Location, RecreateContext};
-use nom_supreme::tag::complete::tag;
-use nom_supreme::{final_parser, ParserExt};
-use tokens::*;
+
+
+
+use tokens::{IoOp, Opcode};
 
 mod tokenizers;
 mod tokens;
 
 type Num = isize;
 
-fn main()   {
+fn main() {
     // let file = include_str!("../data/hello_world.ws");
     let file = include_str!("../data/cleaned.ws");
     let file = file.replace('\r', "");

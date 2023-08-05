@@ -1,13 +1,13 @@
 use crate::{tokens, IoOp};
 use nom::bytes::complete::take_until1;
-use nom::character::complete::{none_of, one_of};
-use nom::multi::{many0, separated_list0};
+
+use nom::multi::{many0};
 use nom::sequence::tuple;
 use nom::{IResult, Parser};
 use nom_supreme::error::ErrorTree;
 use nom_supreme::tag::complete::tag;
 use nom_supreme::ParserExt;
-use tokens::*;
+use tokens::{ARITHMETIC, ArithmeticOp, FLOW_CONTROL, FlowControlOp, HEAP_ACCESS, HeapAccessOp, IO, Opcode, STACK, StackOp};
 
 pub fn program(input: &str) -> IResult<&str, Vec<Opcode>, ErrorTree<&str>> {
     many0(op_code).parse(input)
@@ -34,7 +34,7 @@ pub fn op_code(input: &str) -> IResult<&str, Opcode, ErrorTree<&str>> {
 }
 
 pub fn io_op(input: &str) -> IResult<&str, IoOp, ErrorTree<&str>> {
-    use tokens::io::*;
+    use tokens::io::{PRINT_CHAR, PRINT_NUM, READ_CHAR, READ_NUM};
     tag(READ_CHAR)
         .or(tag(READ_NUM))
         .or(tag(PRINT_CHAR))
@@ -50,7 +50,7 @@ pub fn io_op(input: &str) -> IResult<&str, IoOp, ErrorTree<&str>> {
 }
 
 pub fn heap_access_op(input: &str) -> IResult<&str, HeapAccessOp, ErrorTree<&str>> {
-    use tokens::heap_access::*;
+    use tokens::heap_access::{RETRIEVE, STORE};
     let store = tag(STORE).map(|_| HeapAccessOp::Store);
     let retrieve = tag(RETRIEVE).map(|_| HeapAccessOp::Retrieve);
 
@@ -58,7 +58,7 @@ pub fn heap_access_op(input: &str) -> IResult<&str, HeapAccessOp, ErrorTree<&str
 }
 
 pub fn stack_op(input: &str) -> IResult<&str, StackOp, ErrorTree<&str>> {
-    use tokens::stack::*;
+    use tokens::stack::{COPY, DISCARD, DUPLICATE, PUSH, SLIDE, SWAP};
     let push = tuple((tag(PUSH), number)).map(|(_, num)| StackOp::Push(num));
     let duplicate = tag(DUPLICATE).map(|_| StackOp::Duplicate);
     let swap = tag(SWAP).map(|_| StackOp::Swap);
@@ -75,7 +75,7 @@ pub fn stack_op(input: &str) -> IResult<&str, StackOp, ErrorTree<&str>> {
 }
 
 pub fn arithmetic_op(input: &str) -> IResult<&str, ArithmeticOp, ErrorTree<&str>> {
-    use tokens::arithmetic::*;
+    use tokens::arithmetic::{ADD, DIV, MOD, MUL, SUB};
     let add = tag(ADD).map(|_| ArithmeticOp::Add);
     let sub = tag(SUB).map(|_| ArithmeticOp::Subtract);
     let mul = tag(MUL).map(|_| ArithmeticOp::Multiply);
@@ -86,7 +86,7 @@ pub fn arithmetic_op(input: &str) -> IResult<&str, ArithmeticOp, ErrorTree<&str>
 }
 
 pub fn flow_control_op(input: &str) -> IResult<&str, FlowControlOp, ErrorTree<&str>> {
-    use crate::tokens::flow_control::*;
+    use crate::tokens::flow_control::{CALL, EXIT, JUMP, JUMP_NEGATIVE, JUMP_ZERO, MARK, RETURN};
 
     let label = newline_terminated;
     let mark = tuple((tag(MARK), label)).map(|(_, label)| FlowControlOp::Mark(label));
@@ -135,7 +135,7 @@ pub fn newline_terminated(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
 #[cfg(test)]
 mod tests {
     use crate::to_invisible;
-    use crate::to_visible;
+    
     use crate::tokens::*;
 
     use super::*;
@@ -152,7 +152,7 @@ mod tests {
             ),
             (to_invisible("TTS"), Opcode::HeapAccess(HeapAccessOp::Store)),
         ];
-        for (input, expected) in pairs.into_iter() {
+        for (input, expected) in pairs {
             let op = op_code(&input).unwrap();
             assert_eq!(op, ("", expected));
         }
@@ -167,7 +167,7 @@ mod tests {
             (DIV, ArithmeticOp::Divide),
             (MOD, ArithmeticOp::Modulo),
         ];
-        for (input, expected) in pairs.into_iter() {
+        for (input, expected) in pairs {
             let op = arithmetic_op(input).unwrap();
             assert_eq!(op, ("", expected));
         }
@@ -183,7 +183,7 @@ mod tests {
             (to_invisible("TSSTSSTSSSL"), StackOp::Copy(72)),
             (to_invisible("TLSTSSTSSSL"), StackOp::Slide(72)),
         ];
-        for (input, expected) in pairs.into_iter() {
+        for (input, expected) in pairs {
             let (remaining, op) = stack_op(&input).unwrap();
             assert_eq!((remaining, op), ("", expected));
         }
@@ -195,7 +195,7 @@ mod tests {
             (to_invisible("S"), HeapAccessOp::Store),
             (to_invisible("T"), HeapAccessOp::Retrieve),
         ];
-        for (input, expected) in pairs.into_iter() {
+        for (input, expected) in pairs {
             let (remaining, op) = heap_access_op(&input).unwrap();
             assert_eq!((remaining, op), ("", expected));
         }
@@ -212,7 +212,7 @@ mod tests {
             (to_invisible("TL"), FlowControlOp::Return),
             (to_invisible("LL"), FlowControlOp::Exit),
         ];
-        for (input, expected) in pairs.into_iter() {
+        for (input, expected) in pairs {
             let (remaining, op) = flow_control_op(&input).unwrap();
             assert_eq!((remaining, op), ("", expected));
         }
@@ -226,7 +226,7 @@ mod tests {
             (PRINT_CHAR, IoOp::PrintChar),
             (PRINT_NUM, IoOp::PrintNum),
         ];
-        for (input, expected) in pairs.into_iter() {
+        for (input, expected) in pairs {
             let op = io_op(input).unwrap();
             assert_eq!(op, ("", expected));
         }
