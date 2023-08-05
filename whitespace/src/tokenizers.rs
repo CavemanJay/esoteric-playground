@@ -1,16 +1,21 @@
-use crate::{tokens, IoOp};
+use crate::{tokens, IoOp, Program};
 use nom::bytes::complete::take_until1;
 
-use nom::multi::{many0};
+use nom::multi::many0;
 use nom::sequence::tuple;
 use nom::{IResult, Parser};
 use nom_supreme::error::ErrorTree;
 use nom_supreme::tag::complete::tag;
 use nom_supreme::ParserExt;
-use tokens::{ARITHMETIC, ArithmeticOp, FLOW_CONTROL, FlowControlOp, HEAP_ACCESS, HeapAccessOp, IO, Opcode, STACK, StackOp};
+use tokens::{
+    ArithmeticOp, FlowControlOp, HeapAccessOp, Opcode, StackOp, ARITHMETIC, FLOW_CONTROL,
+    HEAP_ACCESS, IO, STACK,
+};
 
-pub fn program(input: &str) -> IResult<&str, Vec<Opcode>, ErrorTree<&str>> {
-    many0(op_code).parse(input)
+pub fn program(input: &str) -> IResult<&str, Program, ErrorTree<&str>> {
+    many0(op_code)
+        .parse(input)
+        .map(|(i, ops)| (i, Program::new(ops)))
 }
 
 pub fn op_code(input: &str) -> IResult<&str, Opcode, ErrorTree<&str>> {
@@ -59,12 +64,12 @@ pub fn heap_access_op(input: &str) -> IResult<&str, HeapAccessOp, ErrorTree<&str
 
 pub fn stack_op(input: &str) -> IResult<&str, StackOp, ErrorTree<&str>> {
     use tokens::stack::{COPY, DISCARD, DUPLICATE, PUSH, SLIDE, SWAP};
-    let push = tuple((tag(PUSH), number)).map(|(_, num)| StackOp::Push(num));
+    let push = tuple((tag(PUSH), number)).map(|(_, num)| StackOp::Push(num.into()));
     let duplicate = tag(DUPLICATE).map(|_| StackOp::Duplicate);
     let swap = tag(SWAP).map(|_| StackOp::Swap);
     let discard = tag(DISCARD).map(|_| StackOp::Discard);
-    let copy = tuple((tag(COPY), number)).map(|(_, num)| StackOp::Copy(num));
-    let slide = tuple((tag(SLIDE), number)).map(|(_, num)| StackOp::Slide(num));
+    let copy = tuple((tag(COPY), number)).map(|(_, num)| StackOp::Copy(num.into()));
+    let slide = tuple((tag(SLIDE), number)).map(|(_, num)| StackOp::Slide(num.into()));
 
     push.or(duplicate)
         .or(swap)
@@ -89,13 +94,13 @@ pub fn flow_control_op(input: &str) -> IResult<&str, FlowControlOp, ErrorTree<&s
     use crate::tokens::flow_control::{CALL, EXIT, JUMP, JUMP_NEGATIVE, JUMP_ZERO, MARK, RETURN};
 
     let label = newline_terminated;
-    let mark = tuple((tag(MARK), label)).map(|(_, label)| FlowControlOp::Mark(label));
-    let call = tuple((tag(CALL), label)).map(|(_, label)| FlowControlOp::Call(label));
-    let jump = tuple((tag(JUMP), label)).map(|(_, label)| FlowControlOp::Jump(label));
+    let mark = tuple((tag(MARK), label)).map(|(_, label)| FlowControlOp::Mark(label.into()));
+    let call = tuple((tag(CALL), label)).map(|(_, label)| FlowControlOp::Call(label.into()));
+    let jump = tuple((tag(JUMP), label)).map(|(_, label)| FlowControlOp::Jump(label.into()));
     let jump_zero =
-        tuple((tag(JUMP_ZERO), label)).map(|(_, label)| FlowControlOp::JumpIfZero(label));
-    let jump_neg =
-        tuple((tag(JUMP_NEGATIVE), label)).map(|(_, label)| FlowControlOp::JumpIfNegative(label));
+        tuple((tag(JUMP_ZERO), label)).map(|(_, label)| FlowControlOp::JumpIfZero(label.into()));
+    let jump_neg = tuple((tag(JUMP_NEGATIVE), label))
+        .map(|(_, label)| FlowControlOp::JumpIfNegative(label.into()));
     let ret = tag(RETURN).map(|_| FlowControlOp::Return);
     let exit = tag(EXIT).map(|_| FlowControlOp::Exit);
 
@@ -121,6 +126,9 @@ pub fn number(input: &str) -> IResult<&str, isize, ErrorTree<&str>> {
                 _ => unreachable!(),
             })
             .collect::<String>();
+        if bin_str.is_empty() {
+            return (input, 0);
+        }
         let num = isize::from_str_radix(&bin_str, 2).unwrap() * modifier;
         (input, num)
     })
@@ -135,7 +143,7 @@ pub fn newline_terminated(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
 #[cfg(test)]
 mod tests {
     use crate::to_invisible;
-    
+
     use crate::tokens::*;
 
     use super::*;
@@ -179,9 +187,9 @@ mod tests {
             (to_invisible("LS"), StackOp::Duplicate),
             (to_invisible("LT"), StackOp::Swap),
             (to_invisible("LL"), StackOp::Discard),
-            (to_invisible("SSTSSTSSSL"), StackOp::Push(72)),
-            (to_invisible("TSSTSSTSSSL"), StackOp::Copy(72)),
-            (to_invisible("TLSTSSTSSSL"), StackOp::Slide(72)),
+            (to_invisible("SSTSSTSSSL"), StackOp::Push(72.into())),
+            (to_invisible("TSSTSSTSSSL"), StackOp::Copy(72.into())),
+            (to_invisible("TLSTSSTSSSL"), StackOp::Slide(72.into())),
         ];
         for (input, expected) in pairs {
             let (remaining, op) = stack_op(&input).unwrap();
@@ -204,11 +212,14 @@ mod tests {
     #[test]
     fn flow_control_op_test() {
         let pairs = [
-            (to_invisible("SSSL"), FlowControlOp::Mark(" ")),
-            (to_invisible("STSL"), FlowControlOp::Call(" ")),
-            (to_invisible("SLSL"), FlowControlOp::Jump(" ")),
-            (to_invisible("TSSL"), FlowControlOp::JumpIfZero(" ")),
-            (to_invisible("TTSL"), FlowControlOp::JumpIfNegative(" ")),
+            (to_invisible("SSSL"), FlowControlOp::Mark(" ".into())),
+            (to_invisible("STSL"), FlowControlOp::Call(" ".into())),
+            (to_invisible("SLSL"), FlowControlOp::Jump(" ".into())),
+            (to_invisible("TSSL"), FlowControlOp::JumpIfZero(" ".into())),
+            (
+                to_invisible("TTSL"),
+                FlowControlOp::JumpIfNegative(" ".into()),
+            ),
             (to_invisible("TL"), FlowControlOp::Return),
             (to_invisible("LL"), FlowControlOp::Exit),
         ];
@@ -236,8 +247,13 @@ mod tests {
     fn numbers_test() {
         let res = number(" \t\t    \t\n").unwrap();
         assert_eq!(res, ("", 97));
+
         let num = to_invisible("STSSTSSSL");
         let res = number(&num).unwrap();
         assert_eq!(res, ("", 72));
+
+        let num = to_invisible("SL");
+        let res = number(&num).unwrap();
+        assert_eq!(res, ("", 0));
     }
 }
