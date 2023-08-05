@@ -4,6 +4,7 @@ use nom_supreme::final_parser::final_parser;
 use tokenizers::program;
 use tokens::{IoOp, Opcode};
 
+pub mod interpreter;
 pub mod tokenizers;
 pub mod tokens;
 

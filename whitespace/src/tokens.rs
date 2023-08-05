@@ -10,11 +10,13 @@ pub use self::imp::*;
 pub use self::io::*;
 pub use self::stack::*;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Num(isize);
+pub type NumType = isize;
 
-impl From<isize> for Num {
-    fn from(n: isize) -> Self {
+#[derive(Debug, PartialEq, Eq)]
+pub struct Num(pub NumType);
+
+impl From<NumType> for Num {
+    fn from(n: NumType) -> Self {
         Self(n)
     }
 }
