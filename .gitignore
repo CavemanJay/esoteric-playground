@@ -1,4 +1,5 @@
 /target
 *.js
+*.rb
 **/*.lock
 **/dhat-heap.json
