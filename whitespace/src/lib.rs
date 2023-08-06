@@ -43,7 +43,7 @@ pub fn tokenize(src: &str) -> Result<Program, ErrorTree<&str>> {
     final_parser(program)(src)
 }
 
-pub fn to_visible(input: &str) -> String {
+#[must_use] pub fn to_visible(input: &str) -> String {
     input
         .replace('\r', "")
         .replace(' ', "S")
@@ -51,7 +51,7 @@ pub fn to_visible(input: &str) -> String {
         .replace('\n', "L")
 }
 
-pub fn to_invisible(input: &str) -> String {
+#[must_use] pub fn to_invisible(input: &str) -> String {
     input
         .to_ascii_uppercase()
         .replace(['\r', '\t', '\n', ' '], "")

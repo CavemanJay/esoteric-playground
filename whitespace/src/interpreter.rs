@@ -1,15 +1,13 @@
 use std::{
-    cell::{Cell, RefCell},
+    cell::{Cell},
     collections::HashMap,
-    fmt::{Debug, Display},
+    fmt::{Debug},
     hash::Hash,
-    io::{self, Read},
-    ops::IndexMut,
 };
 
-use nom::AsBytes;
 
-use crate::{tokens::*, Describe, Program};
+
+use crate::{tokens::{ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, Opcode, StackOp}, Describe, Program};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MemoryVal {
@@ -87,7 +85,7 @@ impl<'a> Interpreter<'a> {
     pub fn new(program: &'a Program<'a>) -> Self {
         Self {
             program,
-            stack: Vec::with_capacity(10).into(),
+            stack: Vec::with_capacity(10),
             heap: HashMap::new(),
             labels: LabelMap(HashMap::new()),
             ip: 0.into(),
@@ -180,7 +178,7 @@ impl<'a> Interpreter<'a> {
                     }
                     IoOp::PrintNum => {
                         let n = self.stack.pop().expect("Too few items in stack").val;
-                        print!("{}", n);
+                        print!("{n}");
                     }
                 },
                 Opcode::Stack(op) => match op {
@@ -242,12 +240,12 @@ impl<'a> Interpreter<'a> {
                     }
                 },
                 Opcode::FlowControl(op) => match op {
-                    FlowControlOp::Mark(l) => {
+                    FlowControlOp::Mark(_l) => {
                         // let ip = self.ip.get();
                         // self.labels.0.insert(l, ip);
                         // dbg!(&self.labels);
                     }
-                    FlowControlOp::Call(l) => todo!("Call"),
+                    FlowControlOp::Call(_l) => todo!("Call"),
                     FlowControlOp::Jump(l) => {
                         let target = self.labels.0[&l] + 1;
                         self.ip.set(target);
@@ -260,7 +258,7 @@ impl<'a> Interpreter<'a> {
                             inc_ip = false;
                         }
                     }
-                    FlowControlOp::JumpIfNegative(l) => todo!("JumpIfNegative"),
+                    FlowControlOp::JumpIfNegative(_l) => todo!("JumpIfNegative"),
                     FlowControlOp::Return => todo!("Return"),
                     FlowControlOp::Exit => todo!("Exit"),
                 },
