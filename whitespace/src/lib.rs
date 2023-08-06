@@ -1,4 +1,5 @@
 #![warn(clippy::pedantic, clippy::nursery)]
+use itertools::Itertools;
 use nom_supreme::error::ErrorTree;
 use nom_supreme::final_parser::final_parser;
 use tokenizers::program;
@@ -22,7 +23,9 @@ impl<'a> Describe for Program<'a> {
     fn describe(&self) -> String {
         self.ops
             .iter()
-            .map(Describe::describe)
+            // .map(Describe::describe)
+            .enumerate()
+            .map(|(i, op)| format!("[{i}] {}", op.describe()))
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -43,7 +46,7 @@ pub fn tokenize(src: &str) -> Result<Program, ErrorTree<&str>> {
 
 pub fn to_visible(input: &str) -> String {
     input
-        .to_ascii_uppercase()
+        .replace('\r', "")
         .replace(' ', "S")
         .replace('\t', "T")
         .replace('\n', "L")
@@ -52,6 +55,7 @@ pub fn to_visible(input: &str) -> String {
 pub fn to_invisible(input: &str) -> String {
     input
         .to_ascii_uppercase()
+        .replace(['\r', '\t', '\n', ' '], "")
         .replace('S', " ")
         .replace('T', "\t")
         .replace('L', "\n")

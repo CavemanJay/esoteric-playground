@@ -12,7 +12,7 @@ pub use self::stack::*;
 
 pub type NumType = isize;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Num(pub NumType);
 
 impl From<NumType> for Num {
@@ -40,7 +40,7 @@ impl Describe for Num {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Copy)]
 pub struct Label<'a>(&'a str);
 
 impl<'a> From<&'a str> for Label<'a> {
@@ -102,7 +102,7 @@ pub mod flow_control {
     pub const EXIT: &str = "\n\n";
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Opcode<'a> {
     IO(IoOp),
     Stack(StackOp),
@@ -135,7 +135,7 @@ impl Display for Opcode<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum IoOp {
     ReadChar,
     ReadNum,
@@ -166,7 +166,7 @@ impl Display for IoOp {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum StackOp {
     Push(Num),
     Duplicate,
@@ -203,7 +203,7 @@ impl Display for StackOp {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ArithmeticOp {
     Add,
     Subtract,
@@ -238,7 +238,7 @@ impl Display for ArithmeticOp {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FlowControlOp<'a> {
     Mark(Label<'a>),
     Call(Label<'a>),
@@ -279,7 +279,7 @@ impl Display for FlowControlOp<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum HeapAccessOp {
     Store,
     Retrieve,
