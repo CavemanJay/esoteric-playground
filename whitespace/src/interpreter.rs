@@ -11,7 +11,7 @@ use nom::AsBytes;
 
 use crate::{tokens::*, Describe, Program};
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MemoryVal {
     pub val: NumType,
     is_num: bool,
@@ -48,22 +48,6 @@ impl_op!(Sub, sub);
 impl_op!(Mul, mul);
 impl_op!(Div, div);
 impl_op!(Rem, rem);
-
-impl Display for MemoryVal {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{self:?}"))
-    }
-}
-
-impl Debug for MemoryVal {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.is_num {
-            write!(f, "{}", self.val)
-        } else {
-            write!(f, "{}", self.val as u8 as char)
-        }
-    }
-}
 
 impl From<char> for MemoryVal {
     fn from(c: char) -> Self {
@@ -190,13 +174,14 @@ impl<'a> Interpreter<'a> {
                         self.heap.insert(index, Some(num.into()));
                         stdin = &stdin[last_numb_index + 1..];
                     }
-                    IoOp::PrintChar | IoOp::PrintNum => {
-                        let c = self.stack.pop().expect("Too few items in stack");
-                        print!("{c}");
-                    } // IoOp::PrintNum => {
-                      //     let n = self.stack.pop().expect("Too few items in stack");
-                      //     print!("{}", n);
-                      // }
+                    IoOp::PrintChar => {
+                        let c = self.stack.pop().expect("Too few items in stack").val;
+                        print!("{}", c as u8 as char);
+                    }
+                    IoOp::PrintNum => {
+                        let n = self.stack.pop().expect("Too few items in stack").val;
+                        print!("{}", n);
+                    }
                 },
                 Opcode::Stack(op) => match op {
                     // StackOp::Push(n) => self.stack.push(n.0),

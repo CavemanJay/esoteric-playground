@@ -1,5 +1,4 @@
 #![warn(clippy::pedantic, clippy::nursery)]
-use itertools::Itertools;
 use nom_supreme::error::ErrorTree;
 use nom_supreme::final_parser::final_parser;
 use tokenizers::program;
