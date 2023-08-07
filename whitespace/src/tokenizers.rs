@@ -15,7 +15,7 @@ use tokens::{
 pub fn program(input: &str) -> IResult<&str, Program, ErrorTree<&str>> {
     many0(op_code)
         .parse(input)
-        .map(|(i, ops)| (i, Program::new(ops)))
+        .map(|(i, ops)| (i, Program::new(&ops)))
 }
 
 pub fn op_code(input: &str) -> IResult<&str, Opcode, ErrorTree<&str>> {

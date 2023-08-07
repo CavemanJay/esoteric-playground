@@ -1,18 +1,30 @@
 use std::{
-    cell::{Cell},
+    cell::Cell,
     collections::HashMap,
-    fmt::{Debug},
+    fmt::{Debug, Display},
     hash::Hash,
 };
 
-
-
-use crate::{tokens::{ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, Opcode, StackOp}, Describe, Program};
+use crate::{
+    tokens::{ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, Opcode, StackOp},
+    Describe, Program,
+};
+use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MemoryVal {
     pub val: NumType,
     is_num: bool,
+}
+
+impl Display for MemoryVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_num {
+            write!(f, "{}", self.val)
+        } else {
+            write!(f, "{}", self.val as u8 as char)
+        }
+    }
 }
 
 impl MemoryVal {
@@ -59,25 +71,47 @@ impl From<NumType> for MemoryVal {
     }
 }
 
-struct LabelMap<'a>(HashMap<Label<'a>, usize>);
-
-impl Debug for LabelMap<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // f.debug_tuple("LabelMap").field(&self.0).finish()
-        f.debug_map()
-            .entries(self.0.iter().map(|(l, ip)| (l.describe(), ip)))
-            .finish()
-    }
-}
-
 #[derive(Debug)]
 pub struct Interpreter<'a> {
     program: &'a Program<'a>,
     stack: Vec<MemoryVal>,
     heap: HashMap<usize, Option<MemoryVal>>,
+    call_stack: Vec<(Label<'a>, usize)>,
     // labels: HashMap<Label<'a>, usize>,
-    labels: LabelMap<'a>,
     ip: Cell<usize>,
+}
+
+impl Display for Interpreter<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Interpreter")
+            .field(
+                "stack",
+                &self.stack.iter().map(|v| v.val).collect::<Vec<_>>(),
+            )
+            .field(
+                "heap",
+                &format!(
+                    "{{{}}}",
+                    &self
+                        .heap
+                        .iter()
+                        .sorted_by_key(|(key, _)| *key)
+                        .map(|(key, val)| { format!("{}: {}", key, val.unwrap()) })
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            )
+            .field(
+                "ip",
+                &format!(
+                    "[{}] {}",
+                    self.current_instruction_label()
+                        .map_or("--".to_string(), |i| format!("{i}")),
+                    self.current_instruction()
+                ),
+            )
+            .finish()
+    }
 }
 
 impl<'a> Interpreter<'a> {
@@ -87,13 +121,18 @@ impl<'a> Interpreter<'a> {
             program,
             stack: Vec::with_capacity(10),
             heap: HashMap::new(),
-            labels: LabelMap(HashMap::new()),
+            // labels,
             ip: 0.into(),
+            call_stack: Vec::with_capacity(10),
         }
     }
 
+    fn current_instruction_label(&self) -> Option<usize> {
+        self.program.ops[self.ip.get()].0
+    }
+
     fn current_instruction(&self) -> Opcode<'a> {
-        self.program.ops[self.ip.get()]
+        self.program.ops[self.ip.get()].1
     }
 
     // fn next_instruction(&self) {}
@@ -107,24 +146,17 @@ impl<'a> Interpreter<'a> {
     pub fn execute(mut self) {
         // let mut stdin = String::new();
         // let stdin = String::from("abc12\n45");
-        let stdin = String::from("abcd");
+        let stdin = String::from("5");
         // let stdin = String::from("ab12c");
         // io::stdin().read_line(&mut stdin).unwrap();
         let mut stdin = stdin.as_str();
         let mut inc_ip = true;
 
-        for (i, op) in self.program.ops.iter().enumerate() {
-            if let Opcode::FlowControl(FlowControlOp::Mark(l)) = op {
-                self.labels.0.insert(*l, i);
-            }
-        }
-
         // return;
         loop {
-            // dbg!(&self);
+            // println!("{}", self);
             let instruction = self.current_instruction();
-            // let desc = instruction.describe();
-            // dbg!(instruction);
+            let _curr = instruction.describe();
             if matches!(instruction, Opcode::FlowControl(FlowControlOp::Exit)) {
                 break;
             }
@@ -146,11 +178,8 @@ impl<'a> Interpreter<'a> {
                         self.heap.insert(index, Some(c.into()));
                     }
                     IoOp::ReadNum => {
-                        let index: usize = self.stack.pop().unwrap().val.try_into().unwrap();
-                        // let length = std::cmp::max(index, self.heap.len());
-                        // if index >= self.heap.len() - 1 {
-                        //     self.heap.resize(length + 20, Option::default());
-                        // }
+                        let index: Option<usize> =
+                            self.stack.pop().map(|v| v.val.try_into().unwrap());
                         let mut s = stdin.trim();
                         let new_line_idx = s.find('\n').unwrap_or(s.len());
                         s = &s[..new_line_idx];
@@ -166,10 +195,18 @@ impl<'a> Interpreter<'a> {
                             .last()
                             .unwrap_or_else(|| panic!("Invalid number: {s}"));
 
-                        let num = s[..last_numb_index].parse::<NumType>().unwrap() * modifier;
-
+                        let num = if last_numb_index == 0 {
+                            s.chars().next().unwrap().to_digit(10).unwrap() as NumType
+                        } else {
+                            s[..last_numb_index].parse::<NumType>().unwrap() * modifier
+                        };
                         // // self.heap[&index] = Some(val);
-                        self.heap.insert(index, Some(num.into()));
+                        let val = Some(num.into());
+                        if let Some(index) = index {
+                            self.heap.insert(index, val);
+                        } else {
+                            self.stack.push(val.unwrap());
+                        }
                         stdin = &stdin[last_numb_index + 1..];
                     }
                     IoOp::PrintChar => {
@@ -221,7 +258,7 @@ impl<'a> Interpreter<'a> {
                     ArithmeticOp::Subtract => {
                         let a = self.stack.pop().unwrap();
                         let b = self.stack.pop().unwrap();
-                        self.stack.push(a - b);
+                        self.stack.push(b - a);
                     }
                     ArithmeticOp::Multiply => {
                         let a = self.stack.pop().unwrap();
@@ -240,30 +277,39 @@ impl<'a> Interpreter<'a> {
                     }
                 },
                 Opcode::FlowControl(op) => match op {
-                    FlowControlOp::Mark(_l) => {
-                        // let ip = self.ip.get();
-                        // self.labels.0.insert(l, ip);
-                        // dbg!(&self.labels);
+                    FlowControlOp::Mark(_) => {
+                        // NOOP
                     }
                     FlowControlOp::Call(_l) => todo!("Call"),
                     FlowControlOp::Jump(l) => {
-                        let target = self.labels.0[&l] + 1;
+                        let target = self.program.labels.0[&l] + 1;
                         self.ip.set(target);
                         inc_ip = false;
                     }
                     FlowControlOp::JumpIfZero(l) => {
                         let val = self.stack.pop().unwrap().val;
                         if val == 0 {
-                            self.ip.set(self.labels.0[&l] + 1);
+                            self.ip.set(self.program.labels.0[&l] + 1);
                             inc_ip = false;
                         }
                     }
-                    FlowControlOp::JumpIfNegative(_l) => todo!("JumpIfNegative"),
+                    FlowControlOp::JumpIfNegative(l) => {
+                        let val = self.stack.pop().unwrap().val;
+                        if val < 0 {
+                            self.ip.set(self.program.labels.0[&l] + 1);
+                            inc_ip = false;
+                        }
+                    }
                     FlowControlOp::Return => todo!("Return"),
                     FlowControlOp::Exit => todo!("Exit"),
                 },
                 Opcode::HeapAccess(op) => match op {
-                    HeapAccessOp::Store => todo!(),
+                    HeapAccessOp::Store => {
+                        let val = self.stack.pop().unwrap();
+                        let addr = self.stack.pop().unwrap().val as usize;
+                        // let val = self.heap[&addr].unwrap();
+                        self.heap.insert(addr, Some(val));
+                    }
                     HeapAccessOp::Retrieve => {
                         let addr = self.stack.pop().unwrap().val as usize;
                         let val = self.heap[&addr].unwrap();
