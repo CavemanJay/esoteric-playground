@@ -1,0 +1,4 @@
+- [ ] Figure out how to tokenize input with non-whitespace chars
+- [ ] Hand-roll an x86 compiler
+- [ ] Create a [Cranelift](https://github.com/bytecodealliance/wasmtime/tree/main/cranelift) backend
+- [ ] Create a [LLVM](https://llvm.org/) backend
