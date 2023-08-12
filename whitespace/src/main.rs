@@ -13,20 +13,23 @@ fn main() {
     // let file = include_str!("../data/cat.ws");
     // let file = include_str!("../data/truth_machine.wsp");
     // let file = include_str!("../data/cat.visible");
-    let file = include_str!("../data/fib.ws");
+    let file = include_str!("../data/factorial-cleaned.ws");
+    // let file = include_str!("../data/factorial.wsp");
     // let file = &file
     //     .chars()
     //     .filter(|c| [' ', '\t', '\n'].contains(c))
     //     .collect::<String>();
-    // let file = to_invisible(file);
-    // let path = env::current_dir().unwrap().join("data/fib.ws");
+    // let file = &to_invisible(file);
+    // let path = env::current_dir().unwrap().join("data/factorial-cleaned.ws");
     // dbg!(&path);
-    // fs::write(path, to_invisible(file)).unwrap();
+    // fs::write(path, file).unwrap();
     // return;
     // println!("{}", to_visible(file));
     // return;
+
     let program = tokenize(file).unwrap();
     println!("{}", program.describe());
     let interpreter = Interpreter::new(&program);
     interpreter.execute();
+
 }

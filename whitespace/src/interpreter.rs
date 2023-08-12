@@ -1,5 +1,4 @@
 use std::{
-    cell::Cell,
     collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
@@ -71,16 +70,27 @@ impl From<NumType> for MemoryVal {
     }
 }
 
+pub trait Readable {
+    fn read_char(&mut self) -> char;
+    fn read_num(&mut self) -> NumType;
+}
+
+// #[derive(Debug)]
+// pub struct Interpreter<'a, TInput>
+// where
+//     TInput: Readable,
 #[derive(Debug)]
 pub struct Interpreter<'a> {
     program: &'a Program<'a>,
     stack: Vec<MemoryVal>,
     heap: HashMap<usize, Option<MemoryVal>>,
     call_stack: Vec<(Label<'a>, usize)>,
-    // labels: HashMap<Label<'a>, usize>,
-    ip: Cell<usize>,
+    ip: usize,
+    iteration: usize,
+    // input: TInput,
 }
 
+// impl<T: Readable> Display for Interpreter<'_, T> {
 impl Display for Interpreter<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Interpreter")
@@ -103,58 +113,56 @@ impl Display for Interpreter<'_> {
             )
             .field(
                 "ip",
-                &format!(
-                    "[{}] {}",
-                    self.current_instruction_label()
-                        .map_or("--".to_string(), |i| format!("{i}")),
-                    self.current_instruction()
-                ),
+                &format!("[{}] {}", self.ip, self.current_instruction()),
             )
+            .field("iteration", &self.iteration)
             .finish()
     }
 }
 
-impl<'a> Interpreter<'a> {
+impl<'a> Interpreter<'a>
+// impl<'a, T> Interpreter<'a, T>
+// where
+//     T: Readable,
+{
     #[must_use]
+    // pub fn new(program: &'a Program<'a>, input: T) -> Self {
     pub fn new(program: &'a Program<'a>) -> Self {
         Self {
             program,
             stack: Vec::with_capacity(10),
             heap: HashMap::new(),
-            // labels,
-            ip: 0.into(),
+            // ip: 0.into(),
+            ip: 0,
             call_stack: Vec::with_capacity(10),
+            iteration: 0,
+            // input,
         }
     }
 
-    fn current_instruction_label(&self) -> Option<usize> {
-        self.program.ops[self.ip.get()].0
-    }
-
     fn current_instruction(&self) -> Opcode<'a> {
-        self.program.ops[self.ip.get()].1
+        // self.program.ops[self.ip.get()].1
+        self.program
+            .ops
+            .iter()
+            .find(|(ip, _)| *ip == Some(self.ip))
+            .unwrap()
+            .1
     }
 
-    // fn next_instruction(&self) {}
-
-    /// .
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
     #[allow(clippy::too_many_lines)]
     pub fn execute(mut self) {
         // let mut stdin = String::new();
         // let stdin = String::from("abc12\n45");
-        let stdin = String::from("5");
+        let stdin = ["15", "1", "-1"].join("\n");
+        // let stdin = ["1", "-1"].join("\n");
         // let stdin = String::from("ab12c");
         // io::stdin().read_line(&mut stdin).unwrap();
+
         let mut stdin = stdin.as_str();
         let mut inc_ip = true;
-
-        // return;
         loop {
-            // println!("{}", self);
+            self.iteration += 1;
             let instruction = self.current_instruction();
             let _curr = instruction.describe();
             if matches!(instruction, Opcode::FlowControl(FlowControlOp::Exit)) {
@@ -196,9 +204,9 @@ impl<'a> Interpreter<'a> {
                             .unwrap_or_else(|| panic!("Invalid number: {s}"));
 
                         let num = if last_numb_index == 0 {
-                            s.chars().next().unwrap().to_digit(10).unwrap() as NumType
+                            s.chars().next().unwrap().to_digit(10).unwrap() as NumType * modifier
                         } else {
-                            s[..last_numb_index].parse::<NumType>().unwrap() * modifier
+                            s[..=last_numb_index].parse::<NumType>().unwrap() * modifier
                         };
                         // // self.heap[&index] = Some(val);
                         let val = Some(num.into());
@@ -207,7 +215,7 @@ impl<'a> Interpreter<'a> {
                         } else {
                             self.stack.push(val.unwrap());
                         }
-                        stdin = &stdin[last_numb_index + 1..];
+                        stdin = stdin[last_numb_index + 1..].trim();
                     }
                     IoOp::PrintChar => {
                         let c = self.stack.pop().expect("Too few items in stack").val;
@@ -229,7 +237,7 @@ impl<'a> Interpreter<'a> {
                     StackOp::Copy(n) => {
                         let val = self.stack[self.stack.len() - 1 - n.0 as usize];
                         self.stack.push(val);
-                        dbg!(&self.stack);
+                        // dbg!(&self.stack);
                     }
                     StackOp::Swap => {
                         let n1 = self.stack.pop().unwrap();
@@ -280,27 +288,38 @@ impl<'a> Interpreter<'a> {
                     FlowControlOp::Mark(_) => {
                         // NOOP
                     }
-                    FlowControlOp::Call(_l) => todo!("Call"),
+                    FlowControlOp::Call(l) => {
+                        self.call_stack.push((l, self.ip + 1));
+                        let target = self.program.labels[l];
+                        self.ip = target;
+                        inc_ip = false;
+                    }
                     FlowControlOp::Jump(l) => {
-                        let target = self.program.labels.0[&l] + 1;
-                        self.ip.set(target);
+                        let target = self.program.labels[l];
+                        self.ip = target;
                         inc_ip = false;
                     }
                     FlowControlOp::JumpIfZero(l) => {
                         let val = self.stack.pop().unwrap().val;
                         if val == 0 {
-                            self.ip.set(self.program.labels.0[&l] + 1);
+                            let target = self.program.labels[l];
+                            self.ip = target;
                             inc_ip = false;
                         }
                     }
                     FlowControlOp::JumpIfNegative(l) => {
                         let val = self.stack.pop().unwrap().val;
                         if val < 0 {
-                            self.ip.set(self.program.labels.0[&l] + 1);
+                            let target = self.program.labels[l];
+                            self.ip = target;
                             inc_ip = false;
                         }
                     }
-                    FlowControlOp::Return => todo!("Return"),
+                    FlowControlOp::Return => {
+                        let (l, ip) = self.call_stack.pop().unwrap();
+                        self.ip = ip;
+                        inc_ip = false;
+                    }
                     FlowControlOp::Exit => todo!("Exit"),
                 },
                 Opcode::HeapAccess(op) => match op {
@@ -319,7 +338,8 @@ impl<'a> Interpreter<'a> {
             }
 
             if inc_ip {
-                self.ip.set(self.ip.get() + 1);
+                // self.ip.set(self.ip.get() + 1);
+                self.ip += 1;
             } else {
                 inc_ip = true;
             }

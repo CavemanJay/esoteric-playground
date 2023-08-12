@@ -1,5 +1,7 @@
+use std::fmt::Debug;
 use std::fmt::Display;
 
+use crate::parse_number;
 use crate::to_visible;
 use crate::Describe;
 
@@ -40,18 +42,29 @@ impl Describe for Num {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Copy)]
-pub struct Label<'a>(&'a str);
+#[derive(PartialEq, Eq, Clone, Hash, Copy)]
+pub struct Label<'a> {
+    pub(crate) name: &'a str,
+    // pub(crate) idx: Option<usize>,
+}
 
 impl<'a> From<&'a str> for Label<'a> {
     fn from(s: &'a str) -> Self {
-        Self(s)
+        // Self { name: s, idx: None }
+        Self { name: s }
+    }
+}
+
+impl Debug for Label<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}L", to_visible(self.name)))
     }
 }
 
 impl Describe for Label<'_> {
     fn describe(&self) -> String {
-        format!("{}L", to_visible(self.0))
+        format!("{}L", to_visible(self.name))
+        // format!("0x{:x}", parse_number(self.name))
     }
 }
 
@@ -159,8 +172,8 @@ impl Display for IoOp {
         let description = match self {
             Self::ReadChar => "readc",
             Self::ReadNum => "readn",
-            Self::PrintChar => "printc",
-            Self::PrintNum => "printn",
+            Self::PrintChar => "prtc",
+            Self::PrintNum => "prtn",
         };
         f.write_str(description)
     }
@@ -172,6 +185,7 @@ pub enum StackOp {
     Duplicate,
     Swap,
     Discard,
+    /// Copy the nth item on the stack (given by the argument) onto the top of the stack (v0.3)
     Copy(Num),
     Slide(Num),
 }
@@ -195,7 +209,7 @@ impl Display for StackOp {
             Self::Push(n) => format!("{} push {}", n.describe(), n.0),
             Self::Duplicate => "dup".to_string(),
             Self::Swap => "swap".to_string(),
-            Self::Discard => "discard".to_string(),
+            Self::Discard => "pop".to_string(),
             Self::Copy(n) => format!("{} copy {}", n.describe(), n.0),
             Self::Slide(n) => format!("{} slide {}", n.describe(), n.0),
         };
@@ -214,14 +228,15 @@ pub enum ArithmeticOp {
 
 impl Describe for ArithmeticOp {
     fn describe(&self) -> String {
-        match self {
+        let x = match self {
             Self::Add => "SS",
             Self::Subtract => "ST",
             Self::Multiply => "SL",
             Self::Divide => "TS",
             Self::Modulo => "TT",
-        }
-        .to_string()
+        };
+        format!("{} ({self})", x)
+        // FlowControlOp::Mark(l) => format!("SS {} ({self})", l.describe()),
     }
 }
 
@@ -254,6 +269,7 @@ impl Describe for FlowControlOp<'_> {
         match self {
             FlowControlOp::Mark(l) => format!("SS {} ({self})", l.describe()),
             FlowControlOp::Call(l) => format!("ST {} ({self})", l.describe()),
+            // FlowControlOp::Call(l) => format!("ST {l:?} ({self})"),
             FlowControlOp::Jump(l) => format!("SL {} ({self})", l.describe()),
             FlowControlOp::JumpIfZero(l) => format!("TS {} ({self})", l.describe()),
             FlowControlOp::JumpIfNegative(l) => format!("TT {} ({self})", l.describe()),
@@ -267,7 +283,8 @@ impl Display for FlowControlOp<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let desc = match self {
             FlowControlOp::Mark(l) => format!("label {}", l.describe()),
-            FlowControlOp::Call(l) => format!("call {}", l.describe()),
+            // FlowControlOp::Call(l) => format!("call {}", l.describe()),
+            FlowControlOp::Call(l) => format!("call {l:?}" ),
             FlowControlOp::Jump(l) => format!("jmp {}", l.describe()),
             FlowControlOp::JumpIfZero(l) => format!("jmpz {}", l.describe()),
             FlowControlOp::JumpIfNegative(l) => format!("jmpn {}", l.describe()),
