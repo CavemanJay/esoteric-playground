@@ -1,51 +1,65 @@
+use crate::{
+    tokens::{
+        ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, Num, NumType, Opcode, StackOp,
+    },
+    Describe, Program,
+};
+use itertools::Itertools;
+use num::{bigint::ToBigInt, BigInt, Signed, ToPrimitive, Unsigned, Zero};
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
+    ops::Deref,
 };
 
-use crate::{
-    tokens::{ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, Opcode, StackOp},
-    Describe, Program,
-};
-use itertools::Itertools;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MemoryVal {
-    pub val: NumType,
-    is_num: bool,
-}
-
-impl Display for MemoryVal {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.is_num {
-            write!(f, "{}", self.val)
-        } else {
-            write!(f, "{}", self.val as u8 as char)
-        }
-    }
-}
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MemoryVal(BigInt);
 
 impl MemoryVal {
-    #[must_use]
-    pub const fn num(val: NumType) -> Self {
-        Self { val, is_num: true }
-    }
-    #[must_use]
-    pub const fn char(val: NumType) -> Self {
-        Self { val, is_num: false }
+    fn as_char(&self) -> char {
+        self.0.to_u8().unwrap() as char
     }
 }
+
+impl Deref for MemoryVal {
+    type Target = BigInt;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+// impl Display for MemoryVal {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         if self.is_num {
+//             write!(f, "{}", self.val)
+//         } else {
+//             write!(f, "{}", self.val as u8 as char)
+//         }
+//     }
+// }
+
+// impl MemoryVal {
+//     #[must_use]
+//     pub const fn num(val: NumType) -> Self {
+//         Self { val, is_num: true }
+//     }
+//     #[must_use]
+//     pub const fn char(val: NumType) -> Self {
+//         Self { val, is_num: false }
+//     }
+// }
 
 macro_rules! impl_op {
     ($op:ident, $func:ident) => {
         impl std::ops::$op for MemoryVal {
             type Output = Self;
             fn $func(self, rhs: Self) -> Self::Output {
-                Self {
-                    val: self.val.$func(rhs.val),
-                    ..self
-                }
+                // Self {
+                //     val: self.val.$func(rhs.val),
+                //     ..self
+                // }
+                Self(self.0.$func(rhs.0))
             }
         }
     };
@@ -60,13 +74,19 @@ impl_op!(Rem, rem);
 
 impl From<char> for MemoryVal {
     fn from(c: char) -> Self {
-        Self::char(c as u8 as NumType)
+        Self((c as u8).to_bigint().unwrap())
     }
 }
 
-impl From<NumType> for MemoryVal {
-    fn from(n: NumType) -> Self {
-        Self::num(n)
+impl From<isize> for MemoryVal {
+    fn from(n: isize) -> Self {
+        Self(n.into())
+    }
+}
+
+impl From<Num> for MemoryVal {
+    fn from(value: Num) -> Self {
+        value.0.into()
     }
 }
 
@@ -91,34 +111,35 @@ pub struct Interpreter<'a> {
 }
 
 // impl<T: Readable> Display for Interpreter<'_, T> {
-impl Display for Interpreter<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Interpreter")
-            .field(
-                "stack",
-                &self.stack.iter().map(|v| v.val).collect::<Vec<_>>(),
-            )
-            .field(
-                "heap",
-                &format!(
-                    "{{{}}}",
-                    &self
-                        .heap
-                        .iter()
-                        .sorted_by_key(|(key, _)| *key)
-                        .map(|(key, val)| { format!("{}: {}", key, val.unwrap()) })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-            )
-            .field(
-                "ip",
-                &format!("[{}] {}", self.ip, self.current_instruction()),
-            )
-            .field("iteration", &self.iteration)
-            .finish()
-    }
-}
+
+// impl Display for Interpreter<'_> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("Interpreter")
+//             .field(
+//                 "stack",
+//                 &self.stack.iter().map(|v| v).collect::<Vec<_>>(),
+//             )
+//             .field(
+//                 "heap",
+//                 &format!(
+//                     "{{{}}}",
+//                     &self
+//                         .heap
+//                         .iter()
+//                         .sorted_by_key(|(key, _)| *key)
+//                         .map(|(key, val)| { format!("{}: {}", key, val.unwrap()) })
+//                         .collect::<Vec<_>>()
+//                         .join(", ")
+//                 ),
+//             )
+//             .field(
+//                 "ip",
+//                 &format!("[{}] {}", self.ip, self.current_instruction()),
+//             )
+//             .field("iteration", &self.iteration)
+//             .finish()
+//     }
+// }
 
 impl<'a> Interpreter<'a>
 // impl<'a, T> Interpreter<'a, T>
@@ -154,7 +175,7 @@ impl<'a> Interpreter<'a>
     pub fn execute(mut self) {
         // let mut stdin = String::new();
         // let stdin = String::from("abc12\n45");
-        let stdin = ["15", "1", "-1"].join("\n");
+        let stdin = ["100", "1", "-1"].join("\n");
         // let stdin = ["1", "-1"].join("\n");
         // let stdin = String::from("ab12c");
         // io::stdin().read_line(&mut stdin).unwrap();
@@ -172,7 +193,7 @@ impl<'a> Interpreter<'a>
             match instruction {
                 Opcode::IO(op) => match op {
                     IoOp::ReadChar => {
-                        let index: usize = self.stack.pop().unwrap().val.try_into().unwrap();
+                        let index = self.stack.pop().unwrap().to_usize().unwrap();
                         // let length = std::cmp::max(index, self.heap.len());
                         let mut eof = false;
                         let c = stdin.chars().next().unwrap_or_else(|| {
@@ -186,8 +207,9 @@ impl<'a> Interpreter<'a>
                         self.heap.insert(index, Some(c.into()));
                     }
                     IoOp::ReadNum => {
-                        let index: Option<usize> =
-                            self.stack.pop().map(|v| v.val.try_into().unwrap());
+                        // let index: Option<usize> =
+                        //     self.stack.pop().map(|v| v.val.try_into().unwrap());
+                        let index = self.stack.pop().map(|v| v.to_usize().unwrap());
                         let mut s = stdin.trim();
                         let new_line_idx = s.find('\n').unwrap_or(s.len());
                         s = &s[..new_line_idx];
@@ -218,24 +240,24 @@ impl<'a> Interpreter<'a>
                         stdin = stdin[last_numb_index + 1..].trim();
                     }
                     IoOp::PrintChar => {
-                        let c = self.stack.pop().expect("Too few items in stack").val;
-                        print!("{}", c as u8 as char);
+                        let c = self.stack.pop().expect("Too few items in stack");
+                        print!("{}", c.as_char());
                     }
                     IoOp::PrintNum => {
-                        let n = self.stack.pop().expect("Too few items in stack").val;
-                        print!("{n}");
+                        let n = self.stack.pop().expect("Too few items in stack");
+                        print!("{}", *n);
                     }
                 },
                 Opcode::Stack(op) => match op {
                     // StackOp::Push(n) => self.stack.push(n.0),
-                    StackOp::Push(n) => self.stack.push(MemoryVal::num(n.0)),
+                    StackOp::Push(n) => self.stack.push(n.into()),
                     StackOp::Duplicate => {
                         let n = self.stack.pop().unwrap();
-                        self.stack.push(n);
+                        self.stack.push(n.clone());
                         self.stack.push(n);
                     }
                     StackOp::Copy(n) => {
-                        let val = self.stack[self.stack.len() - 1 - n.0 as usize];
+                        let val = self.stack[self.stack.len() - 1 - n.0 as usize].clone();
                         self.stack.push(val);
                         // dbg!(&self.stack);
                     }
@@ -300,16 +322,16 @@ impl<'a> Interpreter<'a>
                         inc_ip = false;
                     }
                     FlowControlOp::JumpIfZero(l) => {
-                        let val = self.stack.pop().unwrap().val;
-                        if val == 0 {
+                        let val = self.stack.pop().unwrap();
+                        if val.is_zero() {
                             let target = self.program.labels[l];
                             self.ip = target;
                             inc_ip = false;
                         }
                     }
                     FlowControlOp::JumpIfNegative(l) => {
-                        let val = self.stack.pop().unwrap().val;
-                        if val < 0 {
+                        let val = self.stack.pop().unwrap();
+                        if val.is_negative() {
                             let target = self.program.labels[l];
                             self.ip = target;
                             inc_ip = false;
@@ -325,13 +347,13 @@ impl<'a> Interpreter<'a>
                 Opcode::HeapAccess(op) => match op {
                     HeapAccessOp::Store => {
                         let val = self.stack.pop().unwrap();
-                        let addr = self.stack.pop().unwrap().val as usize;
+                        let addr = self.stack.pop().unwrap().to_usize().unwrap();
                         // let val = self.heap[&addr].unwrap();
                         self.heap.insert(addr, Some(val));
                     }
                     HeapAccessOp::Retrieve => {
-                        let addr = self.stack.pop().unwrap().val as usize;
-                        let val = self.heap[&addr].unwrap();
+                        let addr = self.stack.pop().unwrap().to_usize().unwrap();
+                        let val = self.heap[&addr].as_ref().unwrap().clone();
                         self.stack.push(val);
                     }
                 },

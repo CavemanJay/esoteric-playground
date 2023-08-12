@@ -15,7 +15,7 @@ pub use self::stack::*;
 pub type NumType = isize;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Num(pub NumType);
+pub struct Num(pub(crate) NumType);
 
 impl From<NumType> for Num {
     fn from(n: NumType) -> Self {

@@ -1,4 +1,5 @@
 #![warn(clippy::pedantic, clippy::nursery)]
+
 use crate::tokens::{
     ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, Opcode, StackOp,
 };
