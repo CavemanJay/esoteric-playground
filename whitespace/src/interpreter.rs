@@ -10,6 +10,7 @@ use std::{
     collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
+    io::{self, Write},
     ops::Deref,
 };
 
@@ -91,73 +92,52 @@ impl From<Num> for MemoryVal {
 }
 
 pub trait Readable {
-    fn read_char(&mut self) -> char;
+    fn read_char(&mut self) -> Option<char>;
     fn read_num(&mut self) -> NumType;
 }
 
-// #[derive(Debug)]
-// pub struct Interpreter<'a, TInput>
-// where
-//     TInput: Readable,
 #[derive(Debug)]
-pub struct Interpreter<'a> {
+pub struct Interpreter<'a, TInput>
+where
+    TInput: Readable,
+{
     program: &'a Program<'a>,
     stack: Vec<MemoryVal>,
     heap: HashMap<usize, Option<MemoryVal>>,
     call_stack: Vec<(Label<'a>, usize)>,
     ip: usize,
     iteration: usize,
-    // input: TInput,
+    input: TInput,
 }
 
-// impl<T: Readable> Display for Interpreter<'_, T> {
+impl<'a> Interpreter<'a, StdinInput> {
+    #[must_use]
+    pub fn stdin(program: &'a Program<'a>) -> Self {
+        Self::new(program, StdinInput::new())
+    }
+}
 
-// impl Display for Interpreter<'_> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.debug_struct("Interpreter")
-//             .field(
-//                 "stack",
-//                 &self.stack.iter().map(|v| v).collect::<Vec<_>>(),
-//             )
-//             .field(
-//                 "heap",
-//                 &format!(
-//                     "{{{}}}",
-//                     &self
-//                         .heap
-//                         .iter()
-//                         .sorted_by_key(|(key, _)| *key)
-//                         .map(|(key, val)| { format!("{}: {}", key, val.unwrap()) })
-//                         .collect::<Vec<_>>()
-//                         .join(", ")
-//                 ),
-//             )
-//             .field(
-//                 "ip",
-//                 &format!("[{}] {}", self.ip, self.current_instruction()),
-//             )
-//             .field("iteration", &self.iteration)
-//             .finish()
-//     }
-// }
+impl<'a> Interpreter<'a, KnownInput<'a>> {
+    #[must_use]
+    pub fn known_input(program: &'a Program<'a>, input: &'a str) -> Self {
+        Self::new(program, KnownInput(input))
+    }
+}
 
-impl<'a> Interpreter<'a>
-// impl<'a, T> Interpreter<'a, T>
-// where
-//     T: Readable,
+impl<'a, T> Interpreter<'a, T>
+where
+    T: Readable,
 {
     #[must_use]
-    // pub fn new(program: &'a Program<'a>, input: T) -> Self {
-    pub fn new(program: &'a Program<'a>) -> Self {
+    fn new(program: &'a Program<'a>, input: T) -> Self {
         Self {
             program,
             stack: Vec::with_capacity(10),
             heap: HashMap::new(),
-            // ip: 0.into(),
             ip: 0,
             call_stack: Vec::with_capacity(10),
             iteration: 0,
-            // input,
+            input,
         }
     }
 
@@ -173,14 +153,6 @@ impl<'a> Interpreter<'a>
 
     #[allow(clippy::too_many_lines)]
     pub fn execute(mut self) {
-        // let mut stdin = String::new();
-        // let stdin = String::from("abc12\n45");
-        let stdin = ["100", "1", "-1"].join("\n");
-        // let stdin = ["1", "-1"].join("\n");
-        // let stdin = String::from("ab12c");
-        // io::stdin().read_line(&mut stdin).unwrap();
-
-        let mut stdin = stdin.as_str();
         let mut inc_ip = true;
         loop {
             self.iteration += 1;
@@ -195,57 +167,29 @@ impl<'a> Interpreter<'a>
                     IoOp::ReadChar => {
                         let index = self.stack.pop().unwrap().to_usize().unwrap();
                         // let length = std::cmp::max(index, self.heap.len());
-                        let mut eof = false;
-                        let c = stdin.chars().next().unwrap_or_else(|| {
-                            eof = true;
-                            '\0'
-                        });
-                        if !eof {
-                            stdin = &stdin[1..];
-                        }
+                        let c = self.input.read_char().unwrap_or_else(|| '\0');
                         // self.heap[&index] = Some(val);
                         self.heap.insert(index, Some(c.into()));
                     }
                     IoOp::ReadNum => {
-                        // let index: Option<usize> =
-                        //     self.stack.pop().map(|v| v.val.try_into().unwrap());
                         let index = self.stack.pop().map(|v| v.to_usize().unwrap());
-                        let mut s = stdin.trim();
-                        let new_line_idx = s.find('\n').unwrap_or(s.len());
-                        s = &s[..new_line_idx];
-
-                        let modifier = if s.starts_with('-') { -1 } else { 1 };
-                        if modifier == -1 {
-                            s = &s[1..];
-                        }
-                        let last_numb_index = s
-                            .char_indices()
-                            .take_while(|(_, c)| c.is_numeric())
-                            .map(|(i, _)| i)
-                            .last()
-                            .unwrap_or_else(|| panic!("Invalid number: {s}"));
-
-                        let num = if last_numb_index == 0 {
-                            s.chars().next().unwrap().to_digit(10).unwrap() as NumType * modifier
-                        } else {
-                            s[..=last_numb_index].parse::<NumType>().unwrap() * modifier
-                        };
-                        // // self.heap[&index] = Some(val);
+                        let num = self.input.read_num();
                         let val = Some(num.into());
                         if let Some(index) = index {
                             self.heap.insert(index, val);
                         } else {
                             self.stack.push(val.unwrap());
                         }
-                        stdin = stdin[last_numb_index + 1..].trim();
                     }
                     IoOp::PrintChar => {
                         let c = self.stack.pop().expect("Too few items in stack");
                         print!("{}", c.as_char());
+                        io::stdout().flush().unwrap();
                     }
                     IoOp::PrintNum => {
                         let n = self.stack.pop().expect("Too few items in stack");
                         print!("{}", *n);
+                        io::stdout().flush().unwrap();
                     }
                 },
                 Opcode::Stack(op) => match op {
@@ -366,5 +310,98 @@ impl<'a> Interpreter<'a>
                 inc_ip = true;
             }
         }
+    }
+}
+
+pub struct KnownInput<'a>(&'a str);
+
+impl<'a> Readable for KnownInput<'a> {
+    fn read_char(&mut self) -> std::option::Option<char> {
+        let c = self.0.chars().next();
+        self.0 = &self.0[1..];
+        c
+    }
+
+    fn read_num(&mut self) -> isize {
+        let mut s = self.0;
+        let new_line_idx = s.find('\n').unwrap_or(s.len());
+        s = &s[..new_line_idx];
+
+        let modifier = if s.starts_with('-') { -1 } else { 1 };
+        if modifier == -1 {
+            s = &s[1..];
+        }
+        let last_numb_index = s
+            .char_indices()
+            .take_while(|(_, c)| c.is_numeric())
+            .map(|(i, _)| i)
+            .last()
+            .unwrap_or_else(|| panic!("Invalid number: {s}"));
+
+        let num = if last_numb_index == 0 {
+            s.chars().next().unwrap().to_digit(10).unwrap() as NumType * modifier
+        } else {
+            s[..=last_numb_index].parse::<NumType>().unwrap() * modifier
+        };
+
+        self.0 = s[last_numb_index + 1..].trim();
+        num
+    }
+}
+
+pub struct StdinInput {
+    current_line: String,
+}
+impl StdinInput {
+    const fn new() -> Self {
+        Self {
+            current_line: String::new(),
+        }
+    }
+}
+
+impl Default for StdinInput {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Readable for StdinInput {
+    fn read_char(&mut self) -> Option<char> {
+        while self.current_line.trim().is_empty() {
+            std::io::stdin().read_line(&mut self.current_line).unwrap();
+        }
+        let c = self.current_line.chars().next();
+        self.current_line = self.current_line[1..].to_string();
+        c
+    }
+
+    fn read_num(&mut self) -> NumType {
+        while self.current_line.trim().is_empty() {
+            std::io::stdin().read_line(&mut self.current_line).unwrap();
+        }
+        let mut s = self.current_line.as_str();
+        let new_line_idx = s.find('\n').unwrap_or(s.len());
+        s = &s[..new_line_idx];
+
+        let modifier = if s.starts_with('-') { -1 } else { 1 };
+        if modifier == -1 {
+            s = &s[1..];
+        }
+        let last_numb_index = s
+            .char_indices()
+            .take_while(|(_, c)| c.is_numeric())
+            .map(|(i, _)| i)
+            .last()
+            .unwrap_or_else(|| panic!("Invalid number: {s}"));
+
+        let num = if last_numb_index == 0 {
+            s.chars().next().unwrap().to_digit(10).unwrap() as NumType * modifier
+        } else {
+            s[..=last_numb_index].parse::<NumType>().unwrap() * modifier
+        };
+
+        self.current_line = s[last_numb_index + 1..].trim().to_string();
+        num
     }
 }

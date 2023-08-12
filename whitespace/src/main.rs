@@ -29,7 +29,7 @@ fn main() {
 
     let program = tokenize(file).unwrap();
     println!("{}", program.describe());
-    let interpreter = Interpreter::new(&program);
+    // let interpreter = Interpreter::known_input(&program, "10");
+    let interpreter = Interpreter::stdin(&program);
     interpreter.execute();
-
 }
