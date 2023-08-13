@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::str::FromStr;
 
-use crate::parse_number;
 use crate::to_visible;
 use crate::Describe;
 
@@ -20,6 +20,39 @@ pub struct Num(pub(crate) NumType);
 impl From<NumType> for Num {
     fn from(n: NumType) -> Self {
         Self(n)
+    }
+}
+
+impl FromStr for Num {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let num_bytes = s
+            .trim_end_matches("\r\n")
+            .trim_end_matches(['L', '\n'])
+            .as_bytes();
+        let modifier = if num_bytes[0] == b' ' || num_bytes[0] == b'S' {
+            1
+        } else {
+            -1
+        };
+        let bin_str = num_bytes
+            .iter()
+            .skip(1)
+            .map(|b| match b {
+                b' ' | b'S' => Some('0'),
+                b'\t' | b'T' => Some('1'),
+                _ => None,
+                // b => Err(format!("Invalid character in number: {}", *b as char)),
+            })
+            // .collect::<Result<Vec<_>, _>>()?
+            // .iter() // TODO: Maybe there's a more efficient way to do this
+            .flatten()
+            .collect::<String>();
+        if bin_str.is_empty() {
+            return Ok(0.into());
+        }
+        let num = isize::from_str_radix(&bin_str, 2).unwrap() * modifier;
+        Ok(num.into())
     }
 }
 
@@ -116,7 +149,7 @@ pub mod flow_control {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Opcode<'a> {
+pub enum OpCode<'a> {
     IO(IoOp),
     Stack(StackOp),
     Arithmetic(ArithmeticOp),
@@ -124,26 +157,26 @@ pub enum Opcode<'a> {
     HeapAccess(HeapAccessOp),
 }
 
-impl Describe for Opcode<'_> {
+impl Describe for OpCode<'_> {
     fn describe(&self) -> String {
         match self {
-            Opcode::IO(o) => format!("TL {}", o.describe()),
-            Opcode::Stack(o) => format!("S {}", o.describe()),
-            Opcode::Arithmetic(o) => format!("TS {}", o.describe()),
-            Opcode::FlowControl(o) => format!("L {}", o.describe()),
-            Opcode::HeapAccess(o) => format!("TT {}", o.describe()),
+            OpCode::IO(o) => format!("TL {}", o.describe()),
+            OpCode::Stack(o) => format!("S {}", o.describe()),
+            OpCode::Arithmetic(o) => format!("TS {}", o.describe()),
+            OpCode::FlowControl(o) => format!("L {}", o.describe()),
+            OpCode::HeapAccess(o) => format!("TT {}", o.describe()),
         }
     }
 }
 
-impl Display for Opcode<'_> {
+impl Display for OpCode<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Opcode::IO(x) => f.write_fmt(format_args!("{x}")),
-            Opcode::Stack(x) => f.write_fmt(format_args!("{x}")),
-            Opcode::Arithmetic(x) => f.write_fmt(format_args!("{x}")),
-            Opcode::FlowControl(x) => f.write_fmt(format_args!("{x}")),
-            Opcode::HeapAccess(x) => f.write_fmt(format_args!("{x}")),
+            OpCode::IO(x) => f.write_fmt(format_args!("{x}")),
+            OpCode::Stack(x) => f.write_fmt(format_args!("{x}")),
+            OpCode::Arithmetic(x) => f.write_fmt(format_args!("{x}")),
+            OpCode::FlowControl(x) => f.write_fmt(format_args!("{x}")),
+            OpCode::HeapAccess(x) => f.write_fmt(format_args!("{x}")),
         }
     }
 }
@@ -284,7 +317,7 @@ impl Display for FlowControlOp<'_> {
         let desc = match self {
             FlowControlOp::Mark(l) => format!("label {}", l.describe()),
             // FlowControlOp::Call(l) => format!("call {}", l.describe()),
-            FlowControlOp::Call(l) => format!("call {l:?}" ),
+            FlowControlOp::Call(l) => format!("call {l:?}"),
             FlowControlOp::Jump(l) => format!("jmp {}", l.describe()),
             FlowControlOp::JumpIfZero(l) => format!("jmpz {}", l.describe()),
             FlowControlOp::JumpIfNegative(l) => format!("jmpn {}", l.describe()),
@@ -299,14 +332,14 @@ impl Display for FlowControlOp<'_> {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum HeapAccessOp {
     Store,
-    Retrieve,
+    Load,
 }
 
 impl Display for HeapAccessOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let desc = match self {
             Self::Store => "store",
-            Self::Retrieve => "load",
+            Self::Load => "load",
         };
         f.write_str(desc)
     }
@@ -316,7 +349,7 @@ impl Describe for HeapAccessOp {
     fn describe(&self) -> String {
         match self {
             Self::Store => format!("S ({self})"),
-            Self::Retrieve => format!("T ({self})"),
+            Self::Load => format!("T ({self})"),
         }
     }
 }

@@ -1,8 +1,13 @@
-use crate::{tokens, IoOp, Program};
+use std::str::FromStr;
+
+use crate::{
+    tokens::{self, Num},
+    IoOp, Program,
+};
 use nom::{bytes::complete::take_until1, multi::many0, sequence::tuple, IResult, Parser};
 use nom_supreme::{error::ErrorTree, final_parser::final_parser, tag::complete::tag, ParserExt};
 use tokens::{
-    ArithmeticOp, FlowControlOp, HeapAccessOp, Opcode, StackOp, ARITHMETIC, FLOW_CONTROL,
+    ArithmeticOp, FlowControlOp, HeapAccessOp, OpCode, StackOp, ARITHMETIC, FLOW_CONTROL,
     HEAP_ACCESS, IO, STACK,
 };
 
@@ -16,18 +21,18 @@ pub fn program(input: &str) -> IResult<&str, Program, ErrorTree<&str>> {
         .map(|(i, ops)| (i, Program::new(&ops)))
 }
 
-pub fn op_code(input: &str) -> IResult<&str, Opcode, ErrorTree<&str>> {
-    let io = io_op.preceded_by(tag(IO)).map(Opcode::IO);
-    let stack = stack_op.preceded_by(tag(STACK)).map(Opcode::Stack);
+pub fn op_code(input: &str) -> IResult<&str, OpCode, ErrorTree<&str>> {
+    let io = io_op.preceded_by(tag(IO)).map(OpCode::IO);
+    let stack = stack_op.preceded_by(tag(STACK)).map(OpCode::Stack);
     let arithmetic = arithmetic_op
         .preceded_by(tag(ARITHMETIC))
-        .map(Opcode::Arithmetic);
+        .map(OpCode::Arithmetic);
     let flow_control = flow_control_op
         .preceded_by(tag(FLOW_CONTROL))
-        .map(Opcode::FlowControl);
+        .map(OpCode::FlowControl);
     let heap_access = heap_access_op
         .preceded_by(tag(HEAP_ACCESS))
-        .map(Opcode::HeapAccess);
+        .map(OpCode::HeapAccess);
 
     io.or(stack)
         .or(arithmetic)
@@ -55,20 +60,19 @@ pub fn io_op(input: &str) -> IResult<&str, IoOp, ErrorTree<&str>> {
 pub fn heap_access_op(input: &str) -> IResult<&str, HeapAccessOp, ErrorTree<&str>> {
     use tokens::heap_access::{RETRIEVE, STORE};
     let store = tag(STORE).map(|_| HeapAccessOp::Store);
-    let retrieve = tag(RETRIEVE).map(|_| HeapAccessOp::Retrieve);
+    let retrieve = tag(RETRIEVE).map(|_| HeapAccessOp::Load);
 
     store.or(retrieve).parse(input)
 }
 
 pub fn stack_op(input: &str) -> IResult<&str, StackOp, ErrorTree<&str>> {
     use tokens::stack::{COPY, DISCARD, DUPLICATE, PUSH, SLIDE, SWAP};
-    let push = tuple((tag(PUSH), number)).map(|(_, num)| StackOp::Push(num.into()));
+    let push = tuple((tag(PUSH), number)).map(|(_, num)| StackOp::Push(num));
     let duplicate = tag(DUPLICATE).map(|_| StackOp::Duplicate);
     let swap = tag(SWAP).map(|_| StackOp::Swap);
     let discard = tag(DISCARD).map(|_| StackOp::Discard);
-    let copy = tuple((tag(COPY), number)).map(|(_, num)| StackOp::Copy(num.into()));
-    let slide = tuple((tag(SLIDE), number)).map(|(_, num)| StackOp::Slide(num.into()));
-
+    let copy = tuple((tag(COPY), number)).map(|(_, num)| StackOp::Copy(num));
+    let slide = tuple((tag(SLIDE), number)).map(|(_, num)| StackOp::Slide(num));
     push.or(duplicate)
         .or(swap)
         .or(discard)
@@ -84,7 +88,6 @@ pub fn arithmetic_op(input: &str) -> IResult<&str, ArithmeticOp, ErrorTree<&str>
     let mul = tag(MUL).map(|_| ArithmeticOp::Multiply);
     let div = tag(DIV).map(|_| ArithmeticOp::Divide);
     let modulo = tag(MOD).map(|_| ArithmeticOp::Modulo);
-
     add.or(sub).or(mul).or(div).or(modulo).parse(input)
 }
 
@@ -111,25 +114,10 @@ pub fn flow_control_op(input: &str) -> IResult<&str, FlowControlOp, ErrorTree<&s
         .parse(input)
 }
 
-pub fn number(input: &str) -> IResult<&str, isize, ErrorTree<&str>> {
-    newline_terminated(input).map(|(input, num)| {
-        let num_bytes = num.as_bytes();
-        let modifier = if num_bytes[0] == b' ' { 1 } else { -1 };
-        let bin_str = num_bytes
-            .iter()
-            .skip(1)
-            .map(|b| match b {
-                b' ' => '0',
-                b'\t' => '1',
-                _ => unreachable!(),
-            })
-            .collect::<String>();
-        if bin_str.is_empty() {
-            return (input, 0);
-        }
-        let num = isize::from_str_radix(&bin_str, 2).unwrap() * modifier;
-        (input, num)
-    })
+pub fn number(input: &str) -> IResult<&str, Num, ErrorTree<&str>> {
+    // newline_terminated.map_res(|s| s.parse())(input)
+    let mut x = newline_terminated.map_res(|s| s.parse());
+    x.parse(input)
 }
 
 pub fn newline_terminated(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
@@ -149,14 +137,14 @@ mod tests {
     #[test]
     fn op_code_test() {
         let pairs = [
-            (to_invisible("TLTT"), Opcode::IO(IoOp::ReadNum)),
-            (to_invisible("SLL"), Opcode::Stack(StackOp::Discard)),
-            (to_invisible("TSSS"), Opcode::Arithmetic(ArithmeticOp::Add)),
+            (to_invisible("TLTT"), OpCode::IO(IoOp::ReadNum)),
+            (to_invisible("SLL"), OpCode::Stack(StackOp::Discard)),
+            (to_invisible("TSSS"), OpCode::Arithmetic(ArithmeticOp::Add)),
             (
                 to_invisible("LLL"),
-                Opcode::FlowControl(FlowControlOp::Exit),
+                OpCode::FlowControl(FlowControlOp::Exit),
             ),
-            (to_invisible("TTS"), Opcode::HeapAccess(HeapAccessOp::Store)),
+            (to_invisible("TTS"), OpCode::HeapAccess(HeapAccessOp::Store)),
         ];
         for (input, expected) in pairs {
             let op = op_code(&input).unwrap();
@@ -199,7 +187,7 @@ mod tests {
     fn heap_access_op_test() {
         let pairs = [
             (to_invisible("S"), HeapAccessOp::Store),
-            (to_invisible("T"), HeapAccessOp::Retrieve),
+            (to_invisible("T"), HeapAccessOp::Load),
         ];
         for (input, expected) in pairs {
             let (remaining, op) = heap_access_op(&input).unwrap();
@@ -244,14 +232,14 @@ mod tests {
     #[test]
     fn numbers_test() {
         let res = number(" \t\t    \t\n").unwrap();
-        assert_eq!(res, ("", 97));
+        assert_eq!(res, ("", 97.into()));
 
         let num = to_invisible("STSSTSSSL");
         let res = number(&num).unwrap();
-        assert_eq!(res, ("", 72));
+        assert_eq!(res, ("", 72.into()));
 
         let num = to_invisible("SL");
         let res = number(&num).unwrap();
-        assert_eq!(res, ("", 0));
+        assert_eq!(res, ("", 0.into()));
     }
 }

@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 
 use crate::tokens::{
-    ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, Opcode, StackOp,
+    ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, OpCode, StackOp,
 };
 use itertools::Itertools;
 use std::{
@@ -34,7 +34,7 @@ impl Debug for LabelMap<'_> {
 #[derive(Debug)]
 pub struct Program<'a> {
     // pub ops: Vec<Opcode<'a>>,
-    ops: Vec<(Option<usize>, Opcode<'a>)>,
+    ops: Vec<(Option<usize>, OpCode<'a>)>,
     labels: LabelMap<'a>,
     // labels: Vec<Num>,
 }
@@ -71,7 +71,7 @@ impl<'a> Describe for Program<'a> {
 }
 
 impl<'a> Program<'a> {
-    fn new(ops: &[Opcode<'a>]) -> Self {
+    fn new(ops: &[OpCode<'a>]) -> Self {
         let mut indexed_ops = Vec::with_capacity(ops.len());
         let mut labels = LabelMap(HashMap::new());
         // for (i, (_, op)) in program.ops.iter().enumerate() {
@@ -82,7 +82,7 @@ impl<'a> Program<'a> {
 
         let mut i = 0;
         for op in ops {
-            let index = if let Opcode::FlowControl(FlowControlOp::Mark(l)) = op {
+            let index = if let OpCode::FlowControl(FlowControlOp::Mark(l)) = op {
                 labels.0.insert(*l, i);
                 None
             } else {
@@ -144,24 +144,4 @@ pub fn to_invisible(input: &str) -> String {
         .replace('S', " ")
         .replace('T', "\t")
         .replace('L', "\n")
-}
-
-#[must_use]
-pub fn parse_number(num: &str) -> i128 {
-    let num_bytes = num.as_bytes();
-    let modifier = if num_bytes[0] == b' ' { 1 } else { -1 };
-    let bin_str = num_bytes
-        .iter()
-        .skip(1)
-        .filter_map(|b| match b {
-            b' ' | b'S' => Some('0'),
-            b'\t' | b'T' => Some('1'),
-            _ => None,
-        })
-        .collect::<String>();
-    if bin_str.is_empty() {
-        return 0;
-    }
-
-    i128::from_str_radix(&bin_str, 2).unwrap() * modifier
 }

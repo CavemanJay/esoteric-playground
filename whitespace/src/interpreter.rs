@@ -1,6 +1,6 @@
 use crate::{
     tokens::{
-        ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, Num, NumType, Opcode, StackOp,
+        ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, Num, NumType, OpCode, StackOp,
     },
     Describe, Program,
 };
@@ -141,7 +141,7 @@ where
         }
     }
 
-    fn current_instruction(&self) -> Opcode<'a> {
+    fn current_instruction(&self) -> OpCode<'a> {
         // self.program.ops[self.ip.get()].1
         self.program
             .ops
@@ -158,12 +158,12 @@ where
             self.iteration += 1;
             let instruction = self.current_instruction();
             let _curr = instruction.describe();
-            if matches!(instruction, Opcode::FlowControl(FlowControlOp::Exit)) {
+            if matches!(instruction, OpCode::FlowControl(FlowControlOp::Exit)) {
                 break;
             }
 
             match instruction {
-                Opcode::IO(op) => match op {
+                OpCode::IO(op) => match op {
                     IoOp::ReadChar => {
                         let index = self.stack.pop().unwrap().to_usize().unwrap();
                         // let length = std::cmp::max(index, self.heap.len());
@@ -192,7 +192,7 @@ where
                         io::stdout().flush().unwrap();
                     }
                 },
-                Opcode::Stack(op) => match op {
+                OpCode::Stack(op) => match op {
                     // StackOp::Push(n) => self.stack.push(n.0),
                     StackOp::Push(n) => self.stack.push(n.into()),
                     StackOp::Duplicate => {
@@ -223,7 +223,7 @@ where
                         self.stack.push(top);
                     }
                 },
-                Opcode::Arithmetic(op) => match op {
+                OpCode::Arithmetic(op) => match op {
                     ArithmeticOp::Add => {
                         let a = self.stack.pop().unwrap();
                         let b = self.stack.pop().unwrap();
@@ -250,7 +250,7 @@ where
                         self.stack.push(a % b);
                     }
                 },
-                Opcode::FlowControl(op) => match op {
+                OpCode::FlowControl(op) => match op {
                     FlowControlOp::Mark(_) => {
                         // NOOP
                     }
@@ -288,14 +288,14 @@ where
                     }
                     FlowControlOp::Exit => todo!("Exit"),
                 },
-                Opcode::HeapAccess(op) => match op {
+                OpCode::HeapAccess(op) => match op {
                     HeapAccessOp::Store => {
                         let val = self.stack.pop().unwrap();
                         let addr = self.stack.pop().unwrap().to_usize().unwrap();
                         // let val = self.heap[&addr].unwrap();
                         self.heap.insert(addr, Some(val));
                     }
-                    HeapAccessOp::Retrieve => {
+                    HeapAccessOp::Load => {
                         let addr = self.stack.pop().unwrap().to_usize().unwrap();
                         let val = self.heap[&addr].as_ref().unwrap().clone();
                         self.stack.push(val);
