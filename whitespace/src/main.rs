@@ -1,10 +1,14 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 
-use std::{env, fs};
+use std::{env, error::Error, fs};
 
-use whitespace::{interpreter::Interpreter, to_invisible, to_visible, tokenize, Describe};
+use whitespace::{
+    interpreter::Interpreter,
+    lex::{tokenize_with_nom, tokenize_with_pest_visible},
+    to_invisible, to_visible, Describe,
+};
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     // let file = include_str!("../data/fib.ws");
     // let file = include_str!("../data/hello_world_cleaned.ws");
     // // let file = include_str!("../data/truth_machine.ws");
@@ -13,7 +17,7 @@ fn main() {
     // let file = include_str!("../data/cat.ws");
     // let file = include_str!("../data/truth_machine.wsp");
     // let file = include_str!("../data/cat.visible");
-    let file = include_str!("../data/factorial-cleaned.ws");
+    let file = include_str!("../data/factorial.wsp");
     // let file = include_str!("../data/factorial.wsp");
     // let file = &file
     //     .chars()
@@ -27,9 +31,10 @@ fn main() {
     // println!("{}", to_visible(file));
     // return;
 
-    let program = tokenize(file).unwrap();
+    let program = tokenize_with_pest_visible(&file)?;
     println!("{}", program.describe());
     // let interpreter = Interpreter::known_input(&program, "10");
     let interpreter = Interpreter::stdin(&program);
     interpreter.execute();
+    Ok(())
 }

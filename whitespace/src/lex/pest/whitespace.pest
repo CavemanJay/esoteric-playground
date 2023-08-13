@@ -1,0 +1,82 @@
+L = _{ "\n" }
+T = _{ "\t" }
+S = _{ " " }
+
+// WHITESPACE = _{ " " | "\n" | "\t" | "\r\n" }
+
+NUM        = { (S | T) ~ (S | T)* ~ L }
+LABEL_NAME = { (S | T)* ~ L }
+
+// IMP
+IO         = _{ T ~ L }
+STACK      = _{ S }
+ARITHMETIC = _{ T ~ S }
+FLOW       = _{ L }
+HEAP       = _{ T ~ T }
+
+// Io
+READ_CHAR  = { IO ~ T ~ S }
+READ_NUM   = { IO ~ T ~ T }
+PRINT_CHAR = { IO ~ S ~ S }
+PRINT_NUM  = { IO ~ S ~ T }
+
+// Arithmetic
+ADD = { ARITHMETIC ~ S ~ S }
+SUB = { ARITHMETIC ~ S ~ T }
+MUL = { ARITHMETIC ~ S ~ L }
+DIV = { ARITHMETIC ~ T ~ S }
+MOD = { ARITHMETIC ~ T ~ T }
+
+// Stack
+S_PUSH  = { STACK ~ S ~ NUM }
+DUP     = { STACK ~ L ~ S }
+SWAP    = { STACK ~ L ~ T }
+DISCARD = { STACK ~ L ~ L }
+COPY    = { STACK ~ T ~ S ~ NUM }
+SLIDE   = { STACK ~ T ~ L ~ NUM }
+
+// Heap
+STORE = { HEAP ~ S }
+LOAD  = { HEAP ~ T }
+
+// Flow
+LABEL     = { FLOW ~ S ~ S ~ LABEL_NAME }
+CALL      = { FLOW ~ S ~ T ~ LABEL_NAME }
+JUMP      = { FLOW ~ S ~ L ~ LABEL_NAME }
+JUMP_ZERO = { FLOW ~ T ~ S ~ LABEL_NAME }
+JUMP_NEG  = { FLOW ~ T ~ T ~ LABEL_NAME }
+RETURN    = { FLOW ~ T ~ L }
+EXIT      = { FLOW ~ L ~ L }
+
+OP = {
+    READ_CHAR
+  | READ_NUM
+  | PRINT_CHAR
+  | PRINT_NUM // IO
+
+  | ADD
+  | SUB
+  | MUL
+  | DIV
+  | MOD // Arithmetic
+
+  | S_PUSH
+  | DUP
+  | SWAP
+  | DISCARD
+  | COPY
+  | SLIDE // Stack
+
+  | STORE
+  | LOAD // Heap
+
+  | LABEL
+  | CALL
+  | JUMP
+  | JUMP_ZERO
+  | JUMP_NEG
+  | RETURN
+  | EXIT // Flow
+}
+
+PROGRAM = { SOI ~ OP* ~ EOI }

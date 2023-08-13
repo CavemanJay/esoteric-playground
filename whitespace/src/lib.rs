@@ -4,18 +4,16 @@ use crate::tokens::{
     ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, Opcode, StackOp,
 };
 use itertools::Itertools;
-use nom_supreme::error::ErrorTree;
-use nom_supreme::final_parser::final_parser;
 use std::{
     cell::Cell,
     collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
 };
-use tokenizers::program;
 
 pub mod interpreter;
-pub mod tokenizers;
+#[cfg(feature = "nom")]
+pub mod lex;
 pub mod tokens;
 
 pub trait Describe {
@@ -127,10 +125,6 @@ impl<'a> Program<'a> {
             labels,
         }
     }
-}
-
-pub fn tokenize(src: &str) -> Result<Program, ErrorTree<&str>> {
-    final_parser(program)(src)
 }
 
 #[must_use]

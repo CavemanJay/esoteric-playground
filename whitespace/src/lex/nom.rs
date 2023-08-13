@@ -1,16 +1,14 @@
 use crate::{tokens, IoOp, Program};
-use nom::bytes::complete::take_until1;
-
-use nom::multi::many0;
-use nom::sequence::tuple;
-use nom::{IResult, Parser};
-use nom_supreme::error::ErrorTree;
-use nom_supreme::tag::complete::tag;
-use nom_supreme::ParserExt;
+use nom::{bytes::complete::take_until1, multi::many0, sequence::tuple, IResult, Parser};
+use nom_supreme::{error::ErrorTree, final_parser::final_parser, tag::complete::tag, ParserExt};
 use tokens::{
     ArithmeticOp, FlowControlOp, HeapAccessOp, Opcode, StackOp, ARITHMETIC, FLOW_CONTROL,
     HEAP_ACCESS, IO, STACK,
 };
+
+pub fn tokenize(src: &str) -> Result<Program, ErrorTree<&str>> {
+    final_parser(program)(src)
+}
 
 pub fn program(input: &str) -> IResult<&str, Program, ErrorTree<&str>> {
     many0(op_code)
