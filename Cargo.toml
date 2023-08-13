@@ -1,2 +1,4 @@
 [workspace]
 members = ['jsfuckrs', 'brainfuck', 'whitespace']
+
+resolver = "2"
