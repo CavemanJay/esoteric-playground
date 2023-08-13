@@ -1,5 +1,5 @@
 use crate::Program;
 
-pub fn tokenize(src: &str) -> Result<Program, ()> {
+pub fn tokenize(_src: &str) -> Result<Program, ()> {
     todo!()
 }

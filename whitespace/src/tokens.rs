@@ -38,15 +38,12 @@ impl FromStr for Num {
         let bin_str = num_bytes
             .iter()
             .skip(1)
-            .map(|b| match b {
+            .filter_map(|b| match b {
                 b' ' | b'S' => Some('0'),
                 b'\t' | b'T' => Some('1'),
                 _ => None,
                 // b => Err(format!("Invalid character in number: {}", *b as char)),
             })
-            // .collect::<Result<Vec<_>, _>>()?
-            // .iter() // TODO: Maybe there's a more efficient way to do this
-            .flatten()
             .collect::<String>();
         if bin_str.is_empty() {
             return Ok(0.into());
@@ -268,7 +265,7 @@ impl Describe for ArithmeticOp {
             Self::Divide => "TS",
             Self::Modulo => "TT",
         };
-        format!("{} ({self})", x)
+        format!("{x} ({self})")
         // FlowControlOp::Mark(l) => format!("SS {} ({self})", l.describe()),
     }
 }

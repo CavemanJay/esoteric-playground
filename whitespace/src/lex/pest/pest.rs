@@ -1,13 +1,3 @@
-use std::{fmt::Debug, hash::Hash};
-
-use itertools::Itertools;
-use pest::{Parser, RuleType};
-use pest_derive::Parser;
-
-use crate::{tokens::imp, Program};
-
-use self::invisible::Rule;
-
 pub mod invisible {
     use crate::{
         tokens::{ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, OpCode, StackOp},
@@ -23,7 +13,7 @@ pub mod invisible {
 
     impl Rule {
         pub fn grammar(&self) -> &str {
-            let name = format!("{:?}", self);
+            let name = format!("{self:?}");
             let x = _PEST_GRAMMAR_Lexer[0]
                 .lines()
                 .find(|l| l.starts_with(&name))
@@ -42,7 +32,12 @@ pub mod invisible {
             .into_inner()
             .filter_map(|p| match p.as_rule() {
                 Rule::OP => Some(p.into_inner().map(|p| {
-                    use Rule::*;
+                    use Rule::{
+                        ADD, CALL, COPY, DISCARD, DIV, DUP, EXIT, JUMP, JUMP_NEG, JUMP_ZERO, LABEL,
+                        LOAD, MOD, MUL, OP_ARITHMETIC, OP_FLOW, OP_HEAP, OP_IO, OP_STACK,
+                        PRINT_CHAR, PRINT_NUM, READ_CHAR, READ_NUM, RETURN, SLIDE, STORE, SUB,
+                        SWAP, S_PUSH,
+                    };
                     let category = p.as_rule();
                     let op = p.into_inner().next().unwrap();
                     let op_type = op.as_rule();
@@ -173,7 +168,6 @@ pub mod invisible {
             let prog = tokenize(file).unwrap();
             assert_eq!(prog.ops.len(), 243);
         }
-
     }
 }
 
@@ -192,7 +186,7 @@ pub mod visible {
 
     impl Rule {
         pub fn grammar(&self) -> &str {
-            let name = format!("{:?}", self);
+            let name = format!("{self:?}");
             let x = _PEST_GRAMMAR_Lexer[0]
                 .lines()
                 .find(|l| l.starts_with(&name))
@@ -211,7 +205,12 @@ pub mod visible {
             .into_inner()
             .filter_map(|p| match p.as_rule() {
                 Rule::OP => Some(p.into_inner().map(|p| {
-                    use Rule::*;
+                    use Rule::{
+                        ADD, CALL, COPY, DISCARD, DIV, DUP, EXIT, JUMP, JUMP_NEG, JUMP_ZERO, LABEL,
+                        LOAD, MOD, MUL, OP_ARITHMETIC, OP_FLOW, OP_HEAP, OP_IO, OP_STACK,
+                        PRINT_CHAR, PRINT_NUM, READ_CHAR, READ_NUM, RETURN, SLIDE, STORE, SUB,
+                        SWAP, S_PUSH,
+                    };
                     let category = p.as_rule();
                     let op = p.into_inner().next().unwrap();
                     let op_type = op.as_rule();

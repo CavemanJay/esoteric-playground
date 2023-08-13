@@ -4,11 +4,11 @@ use crate::{
     },
     Describe, Program,
 };
-use itertools::Itertools;
-use num::{bigint::ToBigInt, BigInt, Signed, ToPrimitive, Unsigned, Zero};
+
+use num::{bigint::ToBigInt, BigInt, Signed, ToPrimitive, Zero};
 use std::{
     collections::HashMap,
-    fmt::{Debug, Display},
+    fmt::Debug,
     hash::Hash,
     io::{self, Write},
     ops::Deref,
@@ -167,7 +167,7 @@ where
                     IoOp::ReadChar => {
                         let index = self.stack.pop().unwrap().to_usize().unwrap();
                         // let length = std::cmp::max(index, self.heap.len());
-                        let c = self.input.read_char().unwrap_or_else(|| '\0');
+                        let c = self.input.read_char().unwrap_or('\0');
                         // self.heap[&index] = Some(val);
                         self.heap.insert(index, Some(c.into()));
                     }
@@ -282,7 +282,7 @@ where
                         }
                     }
                     FlowControlOp::Return => {
-                        let (l, ip) = self.call_stack.pop().unwrap();
+                        let (_l, ip) = self.call_stack.pop().unwrap();
                         self.ip = ip;
                         inc_ip = false;
                     }

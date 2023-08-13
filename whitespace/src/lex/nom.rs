@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::{
     tokens::{self, Num},
     IoOp, Program,
@@ -116,7 +114,7 @@ pub fn flow_control_op(input: &str) -> IResult<&str, FlowControlOp, ErrorTree<&s
 
 pub fn number(input: &str) -> IResult<&str, Num, ErrorTree<&str>> {
     // newline_terminated.map_res(|s| s.parse())(input)
-    let mut x = newline_terminated.map_res(|s| s.parse());
+    let mut x = newline_terminated.map_res(str::parse);
     x.parse(input)
 }
 

@@ -1,15 +1,8 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 
-use crate::tokens::{
-    ArithmeticOp, FlowControlOp, HeapAccessOp, IoOp, Label, NumType, OpCode, StackOp,
-};
+use crate::tokens::{FlowControlOp, IoOp, Label, OpCode};
 use itertools::Itertools;
-use std::{
-    cell::Cell,
-    collections::HashMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-};
+use std::{collections::HashMap, fmt::Debug};
 
 pub mod interpreter;
 #[cfg(feature = "nom")]
