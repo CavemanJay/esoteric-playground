@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // let file = include_str!("../data/cat.ws");
     // let file = include_str!("../data/truth_machine.wsp");
     // let file = include_str!("../data/cat.visible");
-    let file = include_str!("../data/hello_world.wsp");
+    let file = include_str!("../../data/hello_world.wsp");
     // let file = include_str!("../data/factorial.wsp");
     // let file = &file
     //     .chars()

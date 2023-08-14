@@ -4,10 +4,7 @@ use crate::{
 };
 use nom::{bytes::complete::take_until1, multi::many0, sequence::tuple, IResult, Parser};
 use nom_supreme::{error::ErrorTree, final_parser::final_parser, tag::complete::tag, ParserExt};
-use tokens::{
-    ArithmeticOp, FlowControlOp, HeapAccessOp, OpCode, StackOp, ARITHMETIC, FLOW_CONTROL,
-    HEAP_ACCESS, IO, STACK,
-};
+use tokens::{ArithmeticOp, FlowControlOp, HeapAccessOp, OpCode, StackOp};
 
 pub fn tokenize(src: &str) -> Result<Program, ErrorTree<&str>> {
     final_parser(program)(src)
@@ -20,6 +17,7 @@ pub fn program(input: &str) -> IResult<&str, Program, ErrorTree<&str>> {
 }
 
 pub fn op_code(input: &str) -> IResult<&str, OpCode, ErrorTree<&str>> {
+    use tokens::string::imp::*;
     let io = io_op.preceded_by(tag(IO)).map(OpCode::IO);
     let stack = stack_op.preceded_by(tag(STACK)).map(OpCode::Stack);
     let arithmetic = arithmetic_op
@@ -40,7 +38,7 @@ pub fn op_code(input: &str) -> IResult<&str, OpCode, ErrorTree<&str>> {
 }
 
 pub fn io_op(input: &str) -> IResult<&str, IoOp, ErrorTree<&str>> {
-    use tokens::io::{PRINT_CHAR, PRINT_NUM, READ_CHAR, READ_NUM};
+    use tokens::string::io::{PRINT_CHAR, PRINT_NUM, READ_CHAR, READ_NUM};
     tag(READ_CHAR)
         .or(tag(READ_NUM))
         .or(tag(PRINT_CHAR))
@@ -56,7 +54,7 @@ pub fn io_op(input: &str) -> IResult<&str, IoOp, ErrorTree<&str>> {
 }
 
 pub fn heap_access_op(input: &str) -> IResult<&str, HeapAccessOp, ErrorTree<&str>> {
-    use tokens::heap_access::{RETRIEVE, STORE};
+    use tokens::string::heap_access::{RETRIEVE, STORE};
     let store = tag(STORE).map(|_| HeapAccessOp::Store);
     let retrieve = tag(RETRIEVE).map(|_| HeapAccessOp::Load);
 
@@ -64,7 +62,7 @@ pub fn heap_access_op(input: &str) -> IResult<&str, HeapAccessOp, ErrorTree<&str
 }
 
 pub fn stack_op(input: &str) -> IResult<&str, StackOp, ErrorTree<&str>> {
-    use tokens::stack::{COPY, DISCARD, DUPLICATE, PUSH, SLIDE, SWAP};
+    use tokens::string::stack::{COPY, DISCARD, DUPLICATE, PUSH, SLIDE, SWAP};
     let push = tuple((tag(PUSH), number)).map(|(_, num)| StackOp::Push(num));
     let duplicate = tag(DUPLICATE).map(|_| StackOp::Duplicate);
     let swap = tag(SWAP).map(|_| StackOp::Swap);
@@ -80,7 +78,7 @@ pub fn stack_op(input: &str) -> IResult<&str, StackOp, ErrorTree<&str>> {
 }
 
 pub fn arithmetic_op(input: &str) -> IResult<&str, ArithmeticOp, ErrorTree<&str>> {
-    use tokens::arithmetic::{ADD, DIV, MOD, MUL, SUB};
+    use tokens::string::arithmetic::{ADD, DIV, MOD, MUL, SUB};
     let add = tag(ADD).map(|_| ArithmeticOp::Add);
     let sub = tag(SUB).map(|_| ArithmeticOp::Subtract);
     let mul = tag(MUL).map(|_| ArithmeticOp::Multiply);
@@ -90,7 +88,7 @@ pub fn arithmetic_op(input: &str) -> IResult<&str, ArithmeticOp, ErrorTree<&str>
 }
 
 pub fn flow_control_op(input: &str) -> IResult<&str, FlowControlOp, ErrorTree<&str>> {
-    use crate::tokens::flow_control::{CALL, EXIT, JUMP, JUMP_NEGATIVE, JUMP_ZERO, MARK, RETURN};
+    use tokens::string::flow_control::{CALL, EXIT, JUMP, JUMP_NEGATIVE, JUMP_ZERO, MARK, RETURN};
 
     let label = newline_terminated;
     let mark = tuple((tag(MARK), label)).map(|(_, label)| FlowControlOp::Mark(label.into()));
@@ -127,8 +125,7 @@ pub fn newline_terminated(input: &str) -> IResult<&str, &str, ErrorTree<&str>> {
 #[cfg(test)]
 mod tests {
     use crate::to_invisible;
-
-    use crate::tokens::*;
+    use crate::tokens::string::{arithmetic::*, flow_control::*, heap_access::*, io::*, stack::*};
 
     use super::*;
 

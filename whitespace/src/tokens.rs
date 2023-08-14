@@ -5,12 +5,23 @@ use std::str::FromStr;
 use crate::to_visible;
 use crate::Describe;
 
-pub use self::arithmetic::*;
-pub use self::flow_control::*;
-pub use self::heap_access::*;
-pub use self::imp::*;
-pub use self::io::*;
-pub use self::stack::*;
+pub mod bytes {
+    pub use super::arithmetic::bytes as arithmetic;
+    pub use super::flow_control::bytes as flow_control;
+    pub use super::heap_access::bytes as heap_access;
+    pub use super::imp::bytes as imp;
+    pub use super::io::bytes as io;
+    pub use super::stack::bytes as stack;
+}
+
+pub mod string {
+    pub use super::arithmetic::string as arithmetic;
+    pub use super::flow_control::string as flow_control;
+    pub use super::heap_access::string as heap_access;
+    pub use super::imp::string as imp;
+    pub use super::io::string as io;
+    pub use super::stack::string as stack;
+}
 
 pub type NumType = isize;
 
@@ -98,52 +109,86 @@ impl Describe for Label<'_> {
     }
 }
 
-pub mod imp {
-    pub const IO: &str = "\t\n";
-    pub const STACK: &str = " ";
-    pub const ARITHMETIC: &str = "\t ";
-    pub const FLOW_CONTROL: &str = "\n";
-    pub const HEAP_ACCESS: &str = "\t\t";
+macro_rules! def_tokens {
+    // ($mod:ident,$(($name:ident, $val:literal),?)*) => {};
+    ($mod:ident, [ $(($x:ident, $val:literal),)* ]) => {
+        pub mod $mod {
+            pub enum Tokens {
+                $($x,)*
+            }
+            pub mod string {
+                $(
+                    pub const $x: &str = $val;
+                )*
+            }
+
+            pub mod bytes {
+                $(
+                    pub const $x: &[u8] = $val.as_bytes();
+                )*
+            }
+        }
+    };
 }
 
-pub mod io {
-    pub const READ_CHAR: &str = "\t ";
-    pub const READ_NUM: &str = "\t\t";
-    pub const PRINT_NUM: &str = " \t";
-    pub const PRINT_CHAR: &str = "  ";
-}
+def_tokens!(
+    imp,
+    [
+        (IO, "\t\n"),
+        (STACK, " "),
+        (ARITHMETIC, "\t "),
+        (FLOW_CONTROL, "\n"),
+        (HEAP_ACCESS, "\t\t"),
+    ]
+);
 
-pub mod arithmetic {
-    pub const ADD: &str = "  ";
-    pub const SUB: &str = " \t";
-    pub const MUL: &str = " \n";
-    pub const DIV: &str = "\t ";
-    pub const MOD: &str = "\t\t";
-}
+def_tokens!(
+    io,
+    [
+        (READ_CHAR, "\t "),
+        (READ_NUM, "\t\t"),
+        (PRINT_NUM, " \t"),
+        (PRINT_CHAR, "  "),
+    ]
+);
 
-pub mod stack {
-    pub const PUSH: &str = " ";
-    pub const DUPLICATE: &str = "\n ";
-    pub const SWAP: &str = "\n\t";
-    pub const DISCARD: &str = "\n\n";
-    pub const COPY: &str = "\t ";
-    pub const SLIDE: &str = "\t\n";
-}
+def_tokens!(
+    arithmetic,
+    [
+        (ADD, "  "),
+        (SUB, " \t"),
+        (MUL, " \n"),
+        (DIV, "\t "),
+        (MOD, "\t\t"),
+    ]
+);
 
-pub mod heap_access {
-    pub const STORE: &str = " ";
-    pub const RETRIEVE: &str = "\t";
-}
+def_tokens!(
+    stack,
+    [
+        (PUSH, " "),
+        (DUPLICATE, "\n "),
+        (SWAP, "\n\t"),
+        (DISCARD, "\n\n"),
+        (COPY, "\t "),
+        (SLIDE, "\t\n"),
+    ]
+);
 
-pub mod flow_control {
-    pub const MARK: &str = "  ";
-    pub const CALL: &str = " \t";
-    pub const JUMP: &str = " \n";
-    pub const JUMP_ZERO: &str = "\t ";
-    pub const JUMP_NEGATIVE: &str = "\t\t";
-    pub const RETURN: &str = "\t\n";
-    pub const EXIT: &str = "\n\n";
-}
+def_tokens!(heap_access, [(STORE, " "), (RETRIEVE, "\t"),]);
+
+def_tokens!(
+    flow_control,
+    [
+        (MARK, "  "),
+        (CALL, " \t"),
+        (JUMP, " \n"),
+        (JUMP_ZERO, "\t "),
+        (JUMP_NEGATIVE, "\t\t"),
+        (RETURN, "\t\n"),
+        (EXIT, "\n\n"),
+    ]
+);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum OpCode<'a> {
