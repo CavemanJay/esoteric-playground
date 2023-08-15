@@ -75,7 +75,7 @@ impl<'a> Program<'a> {
 
         let mut i = 0;
         for op in ops {
-            let index = if let OpCode::FlowControl(FlowControlOp::Mark(l)) = op {
+            let index = if let OpCode::FlowControl(FlowControlOp::Label(l)) = op {
                 labels.0.insert(*l, i);
                 None
             } else {

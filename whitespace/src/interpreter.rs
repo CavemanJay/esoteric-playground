@@ -251,7 +251,7 @@ where
                     }
                 },
                 OpCode::FlowControl(op) => match op {
-                    FlowControlOp::Mark(_) => {
+                    FlowControlOp::Label(_) => {
                         // NOOP
                     }
                     FlowControlOp::Call(l) => {

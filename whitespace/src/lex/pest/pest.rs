@@ -64,7 +64,7 @@ pub mod invisible {
                             _ => unreachable!(),
                         }),
                         OP_FLOW => OpCode::FlowControl(match op_type {
-                            LABEL => FlowControlOp::Mark(arg.unwrap().into()),
+                            LABEL => FlowControlOp::Label(arg.unwrap().into()),
                             CALL => FlowControlOp::Call(arg.unwrap().into()),
                             JUMP_ZERO => FlowControlOp::JumpIfZero(arg.unwrap().into()),
                             JUMP_NEG => FlowControlOp::JumpIfNegative(arg.unwrap().into()),
@@ -234,7 +234,7 @@ pub mod visible {
                             _ => unreachable!(),
                         }),
                         OP_FLOW => OpCode::FlowControl(match op_type {
-                            LABEL => FlowControlOp::Mark(arg.unwrap().into()),
+                            LABEL => FlowControlOp::Label(arg.unwrap().into()),
                             CALL => FlowControlOp::Call(arg.unwrap().into()),
                             JUMP_ZERO => FlowControlOp::JumpIfZero(arg.unwrap().into()),
                             JUMP_NEG => FlowControlOp::JumpIfNegative(arg.unwrap().into()),

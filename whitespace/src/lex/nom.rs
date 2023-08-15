@@ -91,7 +91,7 @@ pub fn flow_control_op(input: &str) -> IResult<&str, FlowControlOp, ErrorTree<&s
     use tokens::string::flow_control::{CALL, EXIT, JUMP, JUMP_NEGATIVE, JUMP_ZERO, MARK, RETURN};
 
     let label = newline_terminated;
-    let mark = tuple((tag(MARK), label)).map(|(_, label)| FlowControlOp::Mark(label.into()));
+    let mark = tuple((tag(MARK), label)).map(|(_, label)| FlowControlOp::Label(label.into()));
     let call = tuple((tag(CALL), label)).map(|(_, label)| FlowControlOp::Call(label.into()));
     let jump = tuple((tag(JUMP), label)).map(|(_, label)| FlowControlOp::Jump(label.into()));
     let jump_zero =
@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn flow_control_op_test() {
         let pairs = [
-            (to_invisible("SSSL"), FlowControlOp::Mark(" ".into())),
+            (to_invisible("SSSL"), FlowControlOp::Label(" ".into())),
             (to_invisible("STSL"), FlowControlOp::Call(" ".into())),
             (to_invisible("SLSL"), FlowControlOp::Jump(" ".into())),
             (to_invisible("TSSL"), FlowControlOp::JumpIfZero(" ".into())),

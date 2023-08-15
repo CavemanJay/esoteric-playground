@@ -330,7 +330,7 @@ impl Display for ArithmeticOp {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FlowControlOp<'a> {
-    Mark(Label<'a>),
+    Label(Label<'a>),
     Call(Label<'a>),
     Jump(Label<'a>),
     JumpIfZero(Label<'a>),
@@ -342,7 +342,7 @@ pub enum FlowControlOp<'a> {
 impl Describe for FlowControlOp<'_> {
     fn describe(&self) -> String {
         match self {
-            FlowControlOp::Mark(l) => format!("SS {} ({self})", l.describe()),
+            FlowControlOp::Label(l) => format!("SS {} ({self})", l.describe()),
             FlowControlOp::Call(l) => format!("ST {} ({self})", l.describe()),
             // FlowControlOp::Call(l) => format!("ST {l:?} ({self})"),
             FlowControlOp::Jump(l) => format!("SL {} ({self})", l.describe()),
@@ -357,7 +357,7 @@ impl Describe for FlowControlOp<'_> {
 impl Display for FlowControlOp<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let desc = match self {
-            FlowControlOp::Mark(l) => format!("label {}", l.describe()),
+            FlowControlOp::Label(l) => format!("label {}", l.describe()),
             // FlowControlOp::Call(l) => format!("call {}", l.describe()),
             FlowControlOp::Call(l) => format!("call {l:?}"),
             FlowControlOp::Jump(l) => format!("jmp {}", l.describe()),
