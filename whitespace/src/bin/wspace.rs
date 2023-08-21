@@ -2,7 +2,7 @@
 
 use std::error::Error;
 
-use whitespace::{interpreter::Interpreter, lex::tokenize_with_pest_visible, Describe};
+use whitespace::{interpreter::Interpreter, parse::parse_with_pest_visible, Describe};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // let file = include_str!("../data/fib.ws");
@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // println!("{}", to_visible(file));
     // return;
 
-    let program = tokenize_with_pest_visible(file)?;
+    let program = parse_with_pest_visible(file)?;
     println!("{}", program.describe());
     // let interpreter = Interpreter::known_input(&program, "10");
     let interpreter = Interpreter::stdin(&program);

@@ -8,7 +8,7 @@ pub mod invisible {
     use pest_derive::Parser;
 
     #[derive(Parser)]
-    #[grammar = "lex/pest/whitespace.pest"]
+    #[grammar = "parse/pest/whitespace.pest"]
     struct Lexer;
 
     impl Rule {
@@ -22,7 +22,7 @@ pub mod invisible {
         }
     }
 
-    pub fn tokenize(src: &str) -> Result<Program, pest::error::Error<Rule>> {
+    pub fn parse(src: &str) -> Result<Program, pest::error::Error<Rule>> {
         let pair = Lexer::parse(Rule::PROGRAM, src)
             .unwrap_or_else(|e| panic!("{}", e))
             .next()
@@ -109,7 +109,7 @@ pub mod invisible {
         #[test]
         fn hello_world_cleaned() {
             let file = include_str!("../../../data/hello_world_cleaned.ws");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 25);
             assert_eq!(
                 prog.ops.iter().take(4).map(|x| x.1).collect_vec(),
@@ -125,7 +125,7 @@ pub mod invisible {
         #[test]
         fn hello_world() {
             let file = include_str!("../../../data/hello_world.ws");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 25);
             assert_eq!(
                 prog.ops.iter().take(4).map(|x| x.1).collect_vec(),
@@ -141,7 +141,7 @@ pub mod invisible {
         #[test]
         fn factorial() {
             let file = include_str!("../../../data/factorial.ws");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 137);
         }
 
@@ -149,7 +149,7 @@ pub mod invisible {
         // #[ignore]
         fn truth_machine() {
             let file = include_str!("../../../data/truth_machine.ws");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 13);
         }
 
@@ -157,7 +157,7 @@ pub mod invisible {
         // #[ignore]
         fn calc_cleaned() {
             let file = include_str!("../../../data/calc_cleaned.ws");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 243);
         }
 
@@ -165,7 +165,7 @@ pub mod invisible {
         // #[ignore]
         fn calc() {
             let file = include_str!("../../../data/calc.ws");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 243);
         }
     }
@@ -181,7 +181,7 @@ pub mod visible {
     use pest_derive::Parser;
 
     #[derive(Parser)]
-    #[grammar = "lex/pest/whitespace_visible.pest"]
+    #[grammar = "parse/pest/whitespace_visible.pest"]
     struct Lexer;
 
     impl Rule {
@@ -195,7 +195,7 @@ pub mod visible {
         }
     }
 
-    pub fn tokenize(src: &str) -> Result<Program, pest::error::Error<Rule>> {
+    pub fn parse(src: &str) -> Result<Program, pest::error::Error<Rule>> {
         let pair = Lexer::parse(Rule::PROGRAM, src)
             .unwrap_or_else(|e| panic!("{}", e))
             .next()
@@ -281,7 +281,7 @@ pub mod visible {
         #[test]
         fn hello_world() {
             let file = include_str!("../../../data/hello_world.wsp");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 25);
             assert_eq!(
                 prog.ops.iter().take(4).map(|x| x.1).collect_vec(),
@@ -297,21 +297,21 @@ pub mod visible {
         #[test]
         fn factorial() {
             let file = include_str!("../../../data/factorial.wsp");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 137);
         }
 
         #[test]
         fn truth_machine() {
             let file = include_str!("../../../data/truth_machine.wsp");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 13);
         }
 
         #[test]
         fn calc() {
             let file = include_str!("../../../data/calc.wsp");
-            let prog = tokenize(file).unwrap();
+            let prog = parse(file).unwrap();
             assert_eq!(prog.ops.len(), 243);
         }
     }

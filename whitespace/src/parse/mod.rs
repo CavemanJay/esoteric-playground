@@ -4,18 +4,18 @@ mod nom;
 #[path = "pest/pest.rs"]
 mod pest;
 #[cfg(feature = "tree-sitter")]
-mod tree_sitter;
+pub mod tree_sitter;
 
 // #[cfg(feature = "chumsky")]
 // pub use chumsky::visible::tokenize as tokenize_with_chumsky_visible;
 #[cfg(feature = "nom")]
-pub use nom::tokenize as tokenize_with_nom;
+pub use self::nom::parse as parse_with_nom;
+#[cfg(feature = "pest")]
+pub use self::pest::invisible::parse as parse_with_pest;
+#[cfg(feature = "pest")]
+pub use self::pest::visible::parse as parse_with_pest_visible;
 #[cfg(feature = "tree-sitter")]
-pub use tree_sitter::tokenize as tokenize_with_tree_sitter;
-#[cfg(feature = "pest")]
-pub use pest::invisible::tokenize as tokenize_with_pest;
-#[cfg(feature = "pest")]
-pub use pest::visible::tokenize as tokenize_with_pest_visible;
+pub use self::tree_sitter::parse as parse_with_tree_sitter;
 
 // #[cfg(feature = "chumsky")]
 // mod chumsky {
@@ -41,7 +41,6 @@ pub use pest::visible::tokenize as tokenize_with_pest_visible;
 //                 dbg!(&matching);
 //                 matching.parse::<Num>().unwrap()
 //             });
-
 
 //             let tokens = number.parse(src).unwrap();
 //             // Program::new(&tokens);

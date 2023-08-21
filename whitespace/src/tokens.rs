@@ -1,7 +1,12 @@
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::marker::PhantomData;
+use std::ops::Deref;
 use std::str::FromStr;
 
+use itertools::Itertools;
+
+use crate::to_invisible;
 use crate::to_visible;
 use crate::Describe;
 
@@ -25,8 +30,17 @@ pub mod string {
 
 pub type NumType = isize;
 
+pub const LABEL_MAX_LENGTH: usize = 128;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Num(pub(crate) NumType);
+
+impl Deref for Num {
+    type Target = NumType;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl From<NumType> for Num {
     fn from(n: NumType) -> Self {
@@ -34,13 +48,16 @@ impl From<NumType> for Num {
     }
 }
 
-impl FromStr for Num {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let num_bytes = s
-            .trim_end_matches("\r\n")
-            .trim_end_matches(['L', '\n'])
-            .as_bytes();
+// impl ToString for Num {
+//     fn to_string(&self) -> String {
+//         self.0.to_string()
+//     }
+// }
+
+impl TryFrom<&[u8]> for Num {
+    type Error = String;
+
+    fn try_from(num_bytes: &[u8]) -> Result<Self, Self::Error> {
         let modifier = if num_bytes[0] == b' ' || num_bytes[0] == b'S' {
             1
         } else {
@@ -64,6 +81,19 @@ impl FromStr for Num {
     }
 }
 
+impl FromStr for Num {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        eprintln!("Parsing number: '{:?}' (or '{}') ", s, to_visible(s));
+        let num_bytes = s
+            .trim_end_matches("\r\n")
+            .trim_end_matches(['L', '\n'])
+            .as_bytes();
+
+        num_bytes.try_into()
+    }
+}
+
 impl Describe for Num {
     fn describe(&self) -> String {
         if self.0 == 0 {
@@ -77,34 +107,71 @@ impl Describe for Num {
             .map(|b| match b {
                 '0' => 'S',
                 '1' => 'T',
-                x => x,
+                c => c,
             })
             .collect()
     }
 }
 
 #[derive(PartialEq, Eq, Clone, Hash, Copy)]
-pub struct Label<'a> {
-    pub(crate) name: &'a str,
+pub struct Label {
+    // pub(crate) name: &'a str,
+    pub(crate) value: NumType,
+    pub(crate) prefixed_zeroes: u8,
+    // pub(crate) value: [Option<char>; LABEL_MAX_LENGTH],
+    // pub(crate) name: Cow<'a, str>,
     // pub(crate) idx: Option<usize>,
 }
 
-impl<'a> From<&'a str> for Label<'a> {
-    fn from(s: &'a str) -> Self {
-        // Self { name: s, idx: None }
-        Self { name: s }
+impl Label {
+    pub fn name(&self) -> String {
+        // format!("{}", self.value)
+        todo!()
     }
 }
 
-impl Debug for Label<'_> {
+impl TryFrom<Num> for Label {
+    type Error = String;
+    fn try_from(value: Num) -> Result<Self, Self::Error> {
+        todo!()
+    }
+    // fn from(value: Num) -> Self {
+    //     let s = value.describe();
+    //     s.try_into()
+    // }
+}
+
+impl From<&str> for Label {
+    fn from(value: &str) -> Self {
+        value.as_bytes().into()
+    }
+}
+
+impl From<&[u8]> for Label {
+    fn from(value: &[u8]) -> Self {
+        let prefixed_zeroes = value
+            .iter()
+            .take_while(|&&b| b == b' ' || b == b'S')
+            .count() as u8;
+        let value = Num::try_from(value).unwrap();
+        Self {
+            value: value.0,
+            prefixed_zeroes,
+        }
+    }
+}
+
+impl Debug for Label {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}L", to_visible(self.name)))
+        // f.write_fmt(format_args!("{}L", to_visible(self.name)))
+        f.write_fmt(format_args!("{}L", to_visible(&self.name())))
     }
 }
 
-impl Describe for Label<'_> {
+impl Describe for Label {
     fn describe(&self) -> String {
-        format!("{}L", to_visible(self.name))
+        // format!("{}L", to_visible(&self.name()))
+        "".to_string()
         // format!("0x{:x}", parse_number(self.name))
     }
 }
@@ -191,15 +258,15 @@ def_tokens!(
 );
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum OpCode<'a> {
+pub enum OpCode {
     IO(IoOp),
     Stack(StackOp),
     Arithmetic(ArithmeticOp),
-    FlowControl(FlowControlOp<'a>),
+    FlowControl(FlowControlOp),
     HeapAccess(HeapAccessOp),
 }
 
-impl Describe for OpCode<'_> {
+impl Describe for OpCode {
     fn describe(&self) -> String {
         match self {
             OpCode::IO(o) => format!("TL {}", o.describe()),
@@ -211,7 +278,7 @@ impl Describe for OpCode<'_> {
     }
 }
 
-impl Display for OpCode<'_> {
+impl Display for OpCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             OpCode::IO(x) => f.write_fmt(format_args!("{x}")),
@@ -329,17 +396,17 @@ impl Display for ArithmeticOp {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum FlowControlOp<'a> {
-    Label(Label<'a>),
-    Call(Label<'a>),
-    Jump(Label<'a>),
-    JumpIfZero(Label<'a>),
-    JumpIfNegative(Label<'a>),
+pub enum FlowControlOp {
+    Label(Label),
+    Call(Label),
+    Jump(Label),
+    JumpIfZero(Label),
+    JumpIfNegative(Label),
     Return,
     Exit,
 }
 
-impl Describe for FlowControlOp<'_> {
+impl Describe for FlowControlOp {
     fn describe(&self) -> String {
         match self {
             FlowControlOp::Label(l) => format!("SS {} ({self})", l.describe()),
@@ -354,7 +421,7 @@ impl Describe for FlowControlOp<'_> {
     }
 }
 
-impl Display for FlowControlOp<'_> {
+impl Display for FlowControlOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let desc = match self {
             FlowControlOp::Label(l) => format!("label {}", l.describe()),

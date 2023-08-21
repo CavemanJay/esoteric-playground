@@ -6,7 +6,7 @@ use nom::{bytes::complete::take_until1, multi::many0, sequence::tuple, IResult, 
 use nom_supreme::{error::ErrorTree, final_parser::final_parser, tag::complete::tag, ParserExt};
 use tokens::{ArithmeticOp, FlowControlOp, HeapAccessOp, OpCode, StackOp};
 
-pub fn tokenize(src: &str) -> Result<Program, ErrorTree<&str>> {
+pub fn parse(src: &str) -> Result<Program, ErrorTree<&str>> {
     final_parser(program)(src)
 }
 

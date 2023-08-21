@@ -5,17 +5,16 @@ use itertools::Itertools;
 use std::{collections::HashMap, fmt::Debug};
 
 pub mod interpreter;
-#[cfg(feature = "nom")]
-pub mod lex;
+pub mod parse;
 pub mod tokens;
 
 pub trait Describe {
     fn describe(&self) -> String;
 }
 
-pub(crate) struct LabelMap<'a>(HashMap<Label<'a>, usize>);
+pub(crate) struct LabelMap(HashMap<Label, usize>);
 
-impl Debug for LabelMap<'_> {
+impl Debug for LabelMap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // f.debug_tuple("LabelMap").field(&self.0).finish()
         f.debug_map()
@@ -25,28 +24,28 @@ impl Debug for LabelMap<'_> {
 }
 
 #[derive(Debug)]
-pub struct Program<'a> {
+pub struct Program {
     // pub ops: Vec<Opcode<'a>>,
-    ops: Vec<(Option<usize>, OpCode<'a>)>,
-    labels: LabelMap<'a>,
+    ops: Vec<(Option<usize>, OpCode)>,
+    labels: LabelMap,
     // labels: Vec<Num>,
 }
 
-impl<'a> std::ops::Index<&Label<'a>> for LabelMap<'a> {
+impl std::ops::Index<&Label> for LabelMap {
     type Output = usize;
-    fn index(&self, index: &Label<'a>) -> &Self::Output {
+    fn index(&self, index: &Label) -> &Self::Output {
         self.0.get(index).unwrap()
     }
 }
 
-impl<'a> std::ops::Index<Label<'a>> for LabelMap<'a> {
+impl std::ops::Index<Label> for LabelMap {
     type Output = usize;
-    fn index(&self, index: Label<'a>) -> &Self::Output {
+    fn index(&self, index: Label) -> &Self::Output {
         self.index(&index)
     }
 }
 
-impl<'a> Describe for Program<'a> {
+impl Describe for Program {
     fn describe(&self) -> String {
         self.ops
             .iter()
@@ -63,8 +62,8 @@ impl<'a> Describe for Program<'a> {
     }
 }
 
-impl<'a> Program<'a> {
-    fn new(ops: &[OpCode<'a>]) -> Self {
+impl Program {
+    fn new(ops: &[OpCode]) -> Self {
         let mut indexed_ops = Vec::with_capacity(ops.len());
         let mut labels = LabelMap(HashMap::new());
         // for (i, (_, op)) in program.ops.iter().enumerate() {

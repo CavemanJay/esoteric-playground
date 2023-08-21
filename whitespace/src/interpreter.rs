@@ -4,7 +4,6 @@ use crate::{
     },
     Describe, Program,
 };
-
 use num::{bigint::ToBigInt, BigInt, Signed, ToPrimitive, Zero};
 use std::{
     collections::HashMap,
@@ -101,10 +100,10 @@ pub struct Interpreter<'a, TInput>
 where
     TInput: Readable,
 {
-    program: &'a Program<'a>,
+    program: &'a Program,
     stack: Vec<MemoryVal>,
     heap: HashMap<usize, Option<MemoryVal>>,
-    call_stack: Vec<(Label<'a>, usize)>,
+    call_stack: Vec<(Label, usize)>,
     ip: usize,
     iteration: usize,
     input: TInput,
@@ -112,14 +111,14 @@ where
 
 impl<'a> Interpreter<'a, StdinInput> {
     #[must_use]
-    pub fn stdin(program: &'a Program<'a>) -> Self {
+    pub fn stdin(program: &'a Program) -> Self {
         Self::new(program, StdinInput::new())
     }
 }
 
 impl<'a> Interpreter<'a, KnownInput<'a>> {
     #[must_use]
-    pub fn known_input(program: &'a Program<'a>, input: &'a str) -> Self {
+    pub fn known_input(program: &'a Program, input: &'a str) -> Self {
         Self::new(program, KnownInput(input))
     }
 }
@@ -129,7 +128,7 @@ where
     T: Readable,
 {
     #[must_use]
-    fn new(program: &'a Program<'a>, input: T) -> Self {
+    fn new(program: &'a Program, input: T) -> Self {
         Self {
             program,
             stack: Vec::with_capacity(10),
@@ -141,7 +140,7 @@ where
         }
     }
 
-    fn current_instruction(&self) -> OpCode<'a> {
+    fn current_instruction(&self) -> OpCode {
         // self.program.ops[self.ip.get()].1
         self.program
             .ops
